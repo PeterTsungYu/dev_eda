@@ -14,7 +14,7 @@ class _ss_dict:
         return rep
 
     
-class SerEnergy_Set_Point:
+class Set_Point:
     density_H2 = 0.08988 # kg/m3 @ STP
     enthalpy_H2 = 120.21 # MJ/kg-LHV
     enthalpy_MeOH = 20.09 # MJ/kg-LHV
@@ -127,8 +127,14 @@ class SerEnergy_Set_Point:
         
 cur = None
 db_name=''
-Set_Point_lst = [SerEnergy_Set_Point(name= '18A', temp=300, weight_rate=18.91, dummy=0), 
-                 SerEnergy_Set_Point(name= '34A', temp=305, weight_rate=31.85, dummy=0), 
-                 SerEnergy_Set_Point(name= '51A', temp=315, weight_rate=49.02, dummy=9.5), 
-                 SerEnergy_Set_Point(name= '68A', temp=325, weight_rate=63.1, dummy=0), 
-                 SerEnergy_Set_Point(name= '85A', temp=332, weight_rate=81.45, dummy=12.5)]
+SE_Set_Point_lst = [Set_Point(name= '18A', temp=300, weight_rate=18.91, dummy=0), 
+                 Set_Point(name= '34A', temp=305, weight_rate=31.85, dummy=0), 
+                 Set_Point(name= '51A', temp=315, weight_rate=49.02, dummy=9.5), 
+                 Set_Point(name= '68A', temp=325, weight_rate=63.1, dummy=0), 
+                 Set_Point(name= '85A', temp=332, weight_rate=81.45, dummy=12.5)]
+
+BW_Set_Point_lst = [Set_Point(name= '20%', temp=230, weight_rate=24.08, dummy=0), 
+                 Set_Point(name= '40%', temp=305, weight_rate=48.16, dummy=0), 
+                 Set_Point(name= '60%', temp=315, weight_rate=72.23, dummy=0), 
+                 Set_Point(name= '80%', temp=325, weight_rate=96.31, dummy=0), 
+                 Set_Point(name= '100%', temp=332, weight_rate=120.39, dummy=0)]

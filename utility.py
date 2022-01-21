@@ -36,7 +36,15 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
             
         _bls=[]
         _heffls = 0
-        for i in config.Set_Point_lst:
+        
+        if config.db_name == 'Reformer_SE':
+            Set_Point_lst = config.SE_Set_Point_lst
+        elif config.db_name == 'Reformer_BW':
+            Set_Point_lst = config.BW_Set_Point_lst
+        else:
+            pass
+        
+        for i in Set_Point_lst:
             i.cond(df, TC='TC10', Scale='Scale')
             i.eff_calc(df, 
                        TC10='TC10', 
@@ -58,7 +66,7 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
         #print(_effls.sum())
         
         df_sum = pd.DataFrame()
-        for i in config.Set_Point_lst:
+        for i in Set_Point_lst:
             i.gen_dataframe()
             if i.ss_time:
                 #print(i.sum_rows)
@@ -80,6 +88,7 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
         fig, (ax_TC, ax_DFM, ax_GA, ax_heff) = plt.subplots(4, constrained_layout=True, figsize=(10, 10), sharex=False)
         fig.canvas.toolbar_position = 'left'
         
+        #ax_TC_2 = ax_TC.twinx()
         if config.db_name == 'Reformer_SE':
             df['TC10'].plot(legend=True, ax=ax_TC, kind='area', color='lightblue')
             df['TC6'].plot(legend=True, ax=ax_TC)
@@ -91,24 +100,18 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
             ylim = (0,600)
             yticks = range(0,600,100)
         elif config.db_name == 'Reformer_BW':
-            df['TC7'].plot(legend=True, ax=ax_TC, kind='area', color='lightblue')
-            df['TC8'].plot(legend=True, ax=ax_TC)
-            df['TC9'].plot(legend=True, ax=ax_TC)
-            df['TC10'].plot(legend=True, ax=ax_TC)
-            df['EVA_out'].plot(legend=True, ax=ax_TC)
-            ylim = (0,1000)
-            yticks = range(0,1000,100)
-        
-        ax_TC.set(title=f'TC_{Table_name}',
-                  xlim=Time, 
-                  xticks=range(Time[0],Time[1],1200),
-                  ylabel='Temp[oC]',
-                  xlabel='Time[s]',
-                  ylim=ylim, 
-                  yticks=yticks,
-                 )
-        ax_TC_2 = ax_TC.twinx()
-        ax_TC_2.set(ylim=ylim, yticks=yticks,)
+            pd.DataFrame({'BR':df['TC7']}, index=df.index).plot(legend=True, ax=ax_TC, kind='area', color='lightblue',
+                                                                ylim=(0,1000), yticks=range(0,1000,100), ylabel='Temp[oC]',
+                                                                title=f'TC_{Table_name}', xlim=Time, xticks=range(Time[0],Time[1],1200)
+                                                               )
+            df_TC_2 = pd.DataFrame({
+                'EVA_out':df['EVA_out'],
+                'SR_Front':df['TC8'],
+                'SR_Mid':df['TC9'],
+                'SR_End':df['TC10'],
+                'BR_outlet':df['Header_BR_PV'],
+            }, index=df.index).plot(legend=True, ax=ax_TC, secondary_y=True, xlabel='Time[s]')
+            #df_TC_2.set(ylabel='Temp [oC]', ylim=(0,400), yticks=range(0,50,400))
         
         df_DFM = pd.DataFrame({
             'DFM_AOG':df['DFM_AOG'],
@@ -125,8 +128,7 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
                 yticks=range(0,150,10)
                )
         ax_DFM_2 = df['Scale'].plot(legend=True, ax=ax_DFM, secondary_y=True, xlabel='Time[s]',)
-        ax_DFM_2.set_ylabel('Scale [g/min]')
-        ax_DFM_2.set_ylim(0,100)
+        ax_DFM_2.set(ylabel='Scale [g/min]', ylim=(0,150), yticks=range(0,150,10))
         
         df_GA = pd.DataFrame({
             'GA_H2':df['GA_H2'],
