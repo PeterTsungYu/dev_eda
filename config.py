@@ -20,8 +20,8 @@ class Set_Point:
     enthalpy_MeOH = 20.09 # MJ/kg-LHV
     MeOH_weight = 0.543 # 54.3wt%
     cont_step = 60 #continue for 1 min
-    TC_range = 5 #5oC
-    Scale_range = 5 #5g/min
+    TC_range = 5 #5+-oC
+    Scale_range = 5 #5+-g/min
     continuity = 10 #10min
     def __init__(self, name: str, temp: float, weight_rate: float, dummy: float):
         self.name = name
@@ -55,70 +55,47 @@ class Set_Point:
                 self.ss_time.append((u[0], u[-1]))
         self.ss_time = tuple(self.ss_time)
         
-    def eff_calc(self, df: pd.core.frame.DataFrame, TC10: str, TC11: str, EVA_Out: str, Scale: str, DFM_RichGas: str, GA_H2: str):
-        if self.ss_time:
-            self.ss_TC10 = []
-            self.ss_TC11 = []
-            self.ss_EVA_Out = []
-            self.ss_weight_rate = []
-            self.ss_DFM_RichGas = []
-            self.ss_GA_H2 = []
-            self.heff = []
-            for u in self.ss_time:
-                #print(u)
-                ls = [v for v in range(u[0],u[-1])]
-                df_mean = df[df.index.isin(ls)]
-                _avg_TC10 = df_mean[TC10].mean()
-                _avg_TC11 = df_mean[TC11].mean()
-                _avg_EVA_Out = df_mean[EVA_Out].mean()
-                _avg_Scale = df_mean[Scale].mean()
-                _avg_DFM_RichGas = df_mean[DFM_RichGas].mean()
-                _avg_GA_H2 = df_mean[GA_H2].mean()
-                self.ss_TC10.append(_ss_dict(span=u, avg_value=_avg_TC10))
-                self.ss_TC11.append(_ss_dict(span=u, avg_value=_avg_TC11))
-                self.ss_EVA_Out.append(_ss_dict(span=u, avg_value=_avg_EVA_Out))
-                self.ss_weight_rate.append(_ss_dict(span=u, avg_value=_avg_Scale))
-                self.ss_DFM_RichGas.append(_ss_dict(span=u, avg_value=_avg_DFM_RichGas))
-                self.ss_GA_H2.append(_ss_dict(span=u, avg_value=_avg_GA_H2))
-                _avg_H2_flow = self.density_H2 * ((_avg_DFM_RichGas * _avg_GA_H2) / 100 - self.dummy) / 1000 # kg/min @ STP
-                _heff = ((_avg_H2_flow * self.enthalpy_H2) / (_avg_Scale / 1000 * self.MeOH_weight * self.enthalpy_MeOH)) * 100 # enthalpy eff [%]
-                self.heff.append(_ss_dict(span=u, avg_value=_heff))
-            self.ss_TC10 = tuple(self.ss_TC10)
-            self.ss_TC11 = tuple(self.ss_TC11)
-            self.ss_EVA_Out = tuple(self.ss_EVA_Out)
-            self.ss_weight_rate = tuple(self.ss_weight_rate)
-            self.ss_DFM_RichGas = tuple(self.ss_DFM_RichGas)
-            self.ss_GA_H2 = tuple(self.ss_GA_H2)
-            self.heff = tuple(self.heff)
-            #print(self.name, self.ss_weight_rate, self.ss_DFM_RichGas, self.ss_GA_H2)
-            #print(self.name, self.heff)
+    def avg_calc(self, df:pd.core.frame.DataFrame, d:dict):
+        _ss_time = self.ss_time
+        self.ss_avg = {'avg_H2_flow':[], 'ideal_H2_flow':[], 'con_rate':[], 'heff':[], }
+        if _ss_time:
+            _df_mean_ls = []
+            for u in _ss_time:
+                _ls = [v for v in range(u[0],u[-1])]
+                _df_mean_ls.append(df[df.index.isin(_ls)])
+                
+            for k, v in d.items():
+                self.ss_avg[k] = []
+                for i in range(len(_ss_time)):
+                    _avg = _df_mean_ls[i][v].mean()
+                    self.ss_avg[k].append(_ss_dict(span=_ss_time[i], avg_value=_avg))
+            
+            for i in range(len(_ss_time)):
+                avg_H2_flow = self.ss_avg.get('avg_DFM_RichGas')[i].avg_value * self.ss_avg.get('avg_GA_H2')[i].avg_value / 100 - self.dummy # LPM
+                heff = (avg_H2_flow / 1000 * self.density_H2 * self.enthalpy_H2 / (self.ss_avg.get('avg_Scale')[i].avg_value / 1000 * self.MeOH_weight * self.enthalpy_MeOH)) * 100 # enthalpy eff [%]
+                ideal_H2_flow = self.ss_avg.get('avg_Scale')[i].avg_value * 1.22 # 1.22 is a coeff for ideal H2 production
+                con_rate = avg_H2_flow / ideal_H2_flow * 100 
+                self.ss_avg['avg_H2_flow'].append(_ss_dict(span=_ss_time[i], avg_value=avg_H2_flow))
+                self.ss_avg['ideal_H2_flow'].append(_ss_dict(span=_ss_time[i], avg_value=ideal_H2_flow))
+                self.ss_avg['con_rate'].append(_ss_dict(span=_ss_time[i], avg_value=con_rate))
+                self.ss_avg['heff'].append(_ss_dict(span=_ss_time[i], avg_value=heff))
+            
+            for k in self.ss_avg.keys():
+                self.ss_avg[k] = tuple(self.ss_avg[k])
+        
         else:
             pass
         
+        #print(self.ss_avg)
+        #print(self.ss_time)
+        
     def gen_dataframe(self): # dataframe of summaries
-        if self.ss_time:
+        if self.ss_time and self.ss_avg:
             _sum_rows = []
             for i in range(len(self.ss_time)):
-                _sum_rows.append(pd.DataFrame([[self.name, self.ss_time[i][0], 
-                                                self.ss_time[i][-1], 
-                                                round(self.ss_TC10[i].avg_value, 2), 
-                                                round(self.ss_TC11[i].avg_value, 2), 
-                                                round(self.ss_EVA_Out[i].avg_value, 2), 
-                                                round(self.ss_weight_rate[i].avg_value, 2), 
-                                                round(self.ss_DFM_RichGas[i].avg_value, 2), 
-                                                round(self.ss_GA_H2[i].avg_value, 2), 
-                                                round(self.heff[i].avg_value, 2)]], 
-                                              columns=['Steady State', 
-                                                       'Init[s]', 
-                                                       'End[s]', 
-                                                       'TC10[oC]', 
-                                                       'TC11[oC]', 
-                                                       'EVA_Out[oC]', 
-                                                       'Avg_WeightRate[g/min]', 
-                                                       'Avg_RichGas[LPM]', 
-                                                       'Avg_H2_Conc[%]', 
-                                                       'Enthalpy_Eff[%]']
-                                             )
+                _sum_rows.append(pd.DataFrame({**{'Steady State':self.name, 'Init[s]':self.ss_time[i][0], 'End[s]':self.ss_time[i][-1]},\
+                                               **{k:round(v[i].avg_value, 2) for k,v in self.ss_avg.items()}},
+                                             index=[i])
                                 )
             self.sum_rows = pd.concat(_sum_rows)
         else:
@@ -134,7 +111,7 @@ SE_Set_Point_lst = [Set_Point(name= '18A', temp=300, weight_rate=18.91, dummy=0)
                  Set_Point(name= '85A', temp=332, weight_rate=81.45, dummy=12.5)]
 
 BW_Set_Point_lst = [Set_Point(name= '20%', temp=230, weight_rate=24.08, dummy=0), 
-                 Set_Point(name= '40%', temp=305, weight_rate=48.16, dummy=0), 
-                 Set_Point(name= '60%', temp=315, weight_rate=72.23, dummy=0), 
-                 Set_Point(name= '80%', temp=325, weight_rate=96.31, dummy=0), 
-                 Set_Point(name= '100%', temp=332, weight_rate=120.39, dummy=0)]
+                 Set_Point(name= '40%', temp=250, weight_rate=48.16, dummy=0), 
+                 Set_Point(name= '60%', temp=250, weight_rate=72.23, dummy=0), 
+                 Set_Point(name= '80%', temp=250, weight_rate=96.31, dummy=0), 
+                 Set_Point(name= '100%', temp=250, weight_rate=120.39, dummy=0)]

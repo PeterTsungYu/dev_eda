@@ -39,27 +39,40 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
         
         if config.db_name == 'Reformer_SE':
             Set_Point_lst = config.SE_Set_Point_lst
+            TC_ss = 'TC10'
+            avg = {'avg_TC10':'TC10', 
+                   'avg_TC11':'TC11', 
+                   'avg_EVA_Out':'EVA_out', 
+                   'avg_Scale':'Scale', 
+                   'avg_DFM_RichGas':'DFM_RichGas', 
+                   'avg_GA_H2':'GA_H2'}
         elif config.db_name == 'Reformer_BW':
             Set_Point_lst = config.BW_Set_Point_lst
+            TC_ss = 'TC8'
+            avg = {'avg_TC7':'TC7',
+                   'avg_TC8':'TC8',
+                   'avg_TC9':'TC9',
+                   'avg_TC10':'TC10',
+                   'avg_EVA_Out':'EVA_out', 
+                   'avg_Scale':'Scale', 
+                   'avg_DFM_RichGas':'DFM_RichGas', 
+                   'avg_GA_H2':'GA_H2',
+                   'avg_Air_MFC_PV':'Air_MFC_PV',
+                   'avg_Lambda':'Lambda'
+                  }
         else:
             pass
         
         for i in Set_Point_lst:
-            i.cond(df, TC='TC10', Scale='Scale')
-            i.eff_calc(df, 
-                       TC10='TC10', 
-                       TC11='TC11', 
-                       EVA_Out='EVA_Out', 
-                       Scale='Scale', 
-                       DFM_RichGas='DFM_RichGas', 
-                       GA_H2='GA_H2'
-                      )
+            #print(i.name)
+            i.cond(df, TC=TC_ss, Scale='Scale')
+            i.avg_calc(df=df, d=avg)
             if i.ss_time:
                 for u in i.ss_time:
                     #print(u)
                     for v in range(u[0], u[-1]):
                         _bls.append(v)
-                for q in i.heff:
+                for q in i.ss_avg['heff']:
                     q.gen_series(leng=_leng)
                     #print(q.series.sum())
                     _heffls = _heffls + q.series
