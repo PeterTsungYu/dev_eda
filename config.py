@@ -22,7 +22,7 @@ class Set_Point:
     cont_step = 60 #continue for 1 min
     TC_range = 5 #5+-oC
     Scale_range = 5 #5+-g/min
-    continuity = 10 #10min
+    continuity = 5 #5min
     def __init__(self, name: str, temp: float, weight_rate: float, dummy: float):
         self.name = name
         # set points
@@ -110,8 +110,8 @@ SE_Set_Point_lst = [Set_Point(name= '18A', temp=300, weight_rate=18.91, dummy=0)
                  Set_Point(name= '68A', temp=325, weight_rate=63.1, dummy=0), 
                  Set_Point(name= '85A', temp=332, weight_rate=81.45, dummy=12.5)]
 
-BW_Set_Point_lst = [Set_Point(name= '20%', temp=230, weight_rate=24.08, dummy=0), 
-                 Set_Point(name= '40%', temp=250, weight_rate=48.16, dummy=0), 
-                 Set_Point(name= '60%', temp=250, weight_rate=72.23, dummy=0), 
-                 Set_Point(name= '80%', temp=250, weight_rate=96.31, dummy=0), 
-                 Set_Point(name= '100%', temp=250, weight_rate=120.39, dummy=0)]
+BW_Set_Point_lst = [Set_Point(name= '20%', temp=260, weight_rate=24.08, dummy=0), 
+                 Set_Point(name= '40%', temp=260, weight_rate=48.16, dummy=0), 
+                 Set_Point(name= '60%', temp=260, weight_rate=72.23, dummy=0), 
+                 Set_Point(name= '80%', temp=260, weight_rate=96.31, dummy=0), 
+                 Set_Point(name= '100%', temp=260, weight_rate=120.39, dummy=0)]

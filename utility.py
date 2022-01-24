@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import config
 
-def db_conn(username: str, password: str,):
+def db_conn(username: str, password: str, db_name:str):
     try:
         # Connect to MariaDB Platform
         conn = mariadb.connect(
@@ -13,7 +13,7 @@ def db_conn(username: str, password: str,):
             password=password,
             host="localhost",
             port=3306,
-            database=config.db_name,
+            database=db_name,
             autocommit=True
         )
         # Get Cursor for tx
@@ -35,7 +35,7 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
         _leng = len(df)
             
         _bls=[]
-        _heffls = 0
+        _effls = 0
         
         if config.db_name == 'Reformer_SE':
             Set_Point_lst = config.SE_Set_Point_lst
@@ -72,10 +72,10 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
                     #print(u)
                     for v in range(u[0], u[-1]):
                         _bls.append(v)
-                for q in i.ss_avg['heff']:
+                for q in i.ss_avg['con_rate']:
                     q.gen_series(leng=_leng)
                     #print(q.series.sum())
-                    _heffls = _heffls + q.series
+                    _effls = _effls + q.series
         #print(_effls.sum())
         
         df_sum = pd.DataFrame()
@@ -166,9 +166,9 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
         ax_GA_2.set_ylim(0,5)
         
         if not df_sum.empty:
-            _heffls.plot(legend=False, ax=ax_heff, kind='area', stacked=False, 
+            _effls.plot(legend=False, ax=ax_heff, kind='area', stacked=False, 
                     title=f'heff_{Table_name}', 
-                    ylabel='Enthalpy Eff. [%]',
+                    ylabel='con_rate [%]',
                      xlabel='Time[s]',
                     #grid=True,  
                     xlim=Time, 
