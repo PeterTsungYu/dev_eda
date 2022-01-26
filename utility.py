@@ -27,7 +27,6 @@ def db_conn(username: str, password: str, db_name:str):
         sys.exit(1)
         
 def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
-    print(type(config.cur))
     if Calc or Ploting:
         #print(Table_name, Time)
         config.cur.execute(f"SELECT * FROM {Table_name}")
@@ -181,3 +180,9 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
     
     else:
         pass
+
+def plot_cols(col_string:str, table_name:str, ax):
+    config.cur.execute(f"SELECT {col_string} FROM {table_name}")
+    df = pd.DataFrame(config.cur.fetchall(), columns=[entry[0] for entry in config.cur.description])
+    df.plot(ax=ax)
+    
