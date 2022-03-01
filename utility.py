@@ -52,12 +52,16 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
                    'avg_TC8':'TC8',
                    'avg_TC9':'TC9',
                    'avg_TC10':'TC10',
-                   'avg_EVA_Out':'EVA_out',
+                   'avg_Steam_Out':'TC11',
+                   'avg_Eva_Out':'EVA_out',
                    'avg_Header_BR_PV':'Header_BR_PV',
+                   'avg_RAD_out':'RAD_out'
                    'avg_Scale':'Scale', 
                    'avg_DFM_RichGas':'DFM_RichGas', 
                    'avg_GA_H2':'GA_H2',
-                   'avg_Air_MFC_PV':'Air_MFC_PV',
+                   'avg_Air_MFC_SET_SV':'Air_MFC_SET_SV',
+                   #'avg_H2_MFC_SET_SV':'H2_MFC_SET_SV',
+                   'avg_Pump_SET_SV':'Pump_SET_SV',
                    'avg_Lambda':'Lambda'
                   }
         else:
@@ -118,7 +122,7 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
                                                                 title=f'TC_{Table_name}', xlim=Time, xticks=range(Time[0],Time[1],1200)
                                                                )
             df_TC_2 = pd.DataFrame({
-                'EVA_out':df['EVA_out'],
+                'Steam_Out':df['TC11'],
                 'SR_Front':df['TC8'],
                 'SR_Mid':df['TC9'],
                 'SR_End':df['TC10'],
