@@ -19,6 +19,11 @@ class Set_Point:
     enthalpy_H2 = 120.21 # MJ/kg-LHV
     enthalpy_MeOH = 20.09 # MJ/kg-LHV
     MeOH_weight = 0.543 # 54.3wt%
+    MeOH_mw = 32 # methanol molecular weight
+    decomp = 0.99 # Percentage of methanol decomposition
+    WGS_conver = 0.97 # WGS convertion
+    R = 0.082 # Ideal gas constnat
+    pres = 1 # pressure of product(atm)
     cont_step = 60 #continue for 1 min
     TC_range = 5 #5+-oC
     Scale_range = 5 #5+-g/min
@@ -73,13 +78,13 @@ class Set_Point:
             for i in range(len(_ss_time)):
                 avg_H2_flow = self.ss_avg.get('avg_DFM_RichGas')[i].avg_value * self.ss_avg.get('avg_GA_H2')[i].avg_value / 100 - self.dummy # LPM
                 heff = (avg_H2_flow / 1000 * self.density_H2 * self.enthalpy_H2 / (self.ss_avg.get('avg_Scale')[i].avg_value / 1000 * self.MeOH_weight * self.enthalpy_MeOH)) * 100 # enthalpy eff [%]
-                ideal_H2_flow = self.ss_avg.get('avg_Scale')[i].avg_value * 1.22 # 1.22 is a coeff for ideal H2 production
+                ideal_H2_flow = self.ss_avg.get('avg_Scale')[i].avg_value / self.MeOH_mw * self.MeOH_weight* self.decomp * (2 + self.WGS_conver) * self.R * (self.ss_avg.get('avg_RAD_out')[i].avg_value + 273) / self.pres
                 con_rate = avg_H2_flow / ideal_H2_flow * 100 
                 self.ss_avg['avg_H2_flow'].append(_ss_dict(span=_ss_time[i], avg_value=avg_H2_flow))
                 self.ss_avg['ideal_H2_flow'].append(_ss_dict(span=_ss_time[i], avg_value=ideal_H2_flow))
                 self.ss_avg['con_rate'].append(_ss_dict(span=_ss_time[i], avg_value=con_rate))
                 self.ss_avg['heff'].append(_ss_dict(span=_ss_time[i], avg_value=heff))
-            
+            print(ideal_H2_flow)
             for k in self.ss_avg.keys():
                 self.ss_avg[k] = tuple(self.ss_avg[k])
         
