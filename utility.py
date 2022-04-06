@@ -31,20 +31,38 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
         #print(Table_name, Time)
         config.cur.execute(f"SELECT * FROM {Table_name}")
         df = pd.DataFrame(config.cur.fetchall(), columns=[entry[0] for entry in config.cur.description]).set_index('Id')
+        pd.set_option('display.max_columns',None)
         _leng = len(df)
-            
+        #plt.figure('123') 
+        #ax = plt.axes(frame_on=False)# 不要額外框線
+        #ax.xaxis.set_visible(False)  # 隱藏X軸刻度線
+        #ax.yaxis.set_visible(False)  # 隱藏Y軸刻度線
+        #pd.plotting.table(ax, df, loc='center') #將mytable投射到ax上，且放置於ax的中間
+        #plt.savefig('table.png')     # 存檔     
         _bls=[]
         _effls = 0
         
         if config.db_name == 'Reformer_SE':
             Set_Point_lst = config.SE_Set_Point_lst
             TC_ss = 'TC10'
-            avg = {'avg_TC10':'TC10', 
+            avg = {
+                   'avg_TC6':'TC6',
+                   'avg_TC7':'TC7',
+                   'avg_TC8':'TC8',
+                   'avg_TC9':'TC9',
+                   'avg_TC10':'TC10', 
                    'avg_TC11':'TC11', 
-                   'avg_EVA_Out':'EVA_out', 
+                   'avg_EVA_Out':'EVA_Out', 
                    'avg_Scale':'Scale', 
                    'avg_DFM_RichGas':'DFM_RichGas', 
-                   'avg_GA_H2':'GA_H2'}
+                   'avg_GA_H2':'GA_H2',
+                   'avg_GA_CO2':'GA_CO2',
+                   'avg_GA_CO':'GA_CO',
+                   'avg_GA_N2':'GA_N2',
+                   'avg_GA_CH4':'GA_CH4',
+                   'avg_ADAM_P_Out':'ADAM_P_Out',
+                   'avg_ADAM_P_MeMix':'ADAM_P_MeMix'
+            }
         elif config.db_name == 'Reformer_BW':
             Set_Point_lst = config.BW_Set_Point_lst
             TC_ss = 'TC8'
@@ -107,15 +125,20 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
         
         #ax_TC_2 = ax_TC.twinx()
         if config.db_name == 'Reformer_SE':
-            df['TC10'].plot(legend=True, ax=ax_TC, kind='area', color='lightblue')
-            df['TC6'].plot(legend=True, ax=ax_TC)
-            df['TC7'].plot(legend=True, ax=ax_TC)
-            df['TC8'].plot(legend=True, ax=ax_TC)
-            df['TC9'].plot(legend=True, ax=ax_TC)
-            df['TC11'].plot(legend=True, ax=ax_TC)
-            df['EVA_Out'].plot(legend=True, ax=ax_TC)
-            ylim = (0,600)
-            yticks = range(0,600,100)
+            pd.DataFrame({'BR':df['TC10']}, index=df.index).plot(legend=True, ax=ax_TC, kind='area', color='lightblue',
+                                                                ylim=(0,500), yticks=range(0,500,50), ylabel='Temp[oC]',
+                                                                title=f'TC_{Table_name}', xlim=Time, xticks=range(Time[0],Time[1],1200)
+                                                               )
+            df_TC_2 = pd.DataFrame({
+                'TC6':df['TC6'],
+                'TC7':df['TC7'],
+                'TC8':df['TC8'],
+                'TC9':df['TC9'],
+                'TC11':df['TC11'],
+                'EVA_out':df['EVA_Out'],
+            }, index=df.index).plot(legend=True, ax=ax_TC, secondary_y=True, xlabel='Time[s]')
+            df_TC_2.set(ylabel='Temp [oC]', ylim=(0,500), yticks=range(0,500,50))
+
         elif config.db_name == 'Reformer_BW':
             pd.DataFrame({'BR':df['TC7']}, index=df.index).plot(legend=True, ax=ax_TC, kind='area', color='lightblue',
                                                                 ylim=(0,1000), yticks=range(0,1000,100), ylabel='Temp[oC]',
