@@ -32,6 +32,12 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
         config.cur.execute(f"SELECT * FROM {Table_name}")
         df = pd.DataFrame(config.cur.fetchall(), columns=[entry[0] for entry in config.cur.description]).set_index('Id')
         pd.set_option('display.max_columns',None)
+        pd.set_option('display.expand_frame_repr', False)
+        pd.set_option('display.html.border',1)
+#         pd.set_option('display.large_repr', 'truncate')
+#         pd.set_option('display.large_repr', 'info')
+
+        
         _leng = len(df)
         #plt.figure('123') 
         #ax = plt.axes(frame_on=False)# 不要額外框線
@@ -46,6 +52,8 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
             Set_Point_lst = config.SE_Set_Point_lst
             TC_ss = 'TC10'
             avg = {
+                   'avg_Air_MFC_SET_SV':'Air_MFC_SET_SV',
+                   'avg_H2_MFC_SET_SV':'H2_MFC_SET_SV',
                    'avg_TC6':'TC6',
                    'avg_TC7':'TC7',
                    'avg_TC8':'TC8',
@@ -72,17 +80,20 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
                    'avg_TC9':'TC9',
                    'avg_TC10':'TC10',
                    'avg_Steam_Out':'TC11',
-                   'avg_Eva_Out':'EVA_out',
+                   'avg_EVA_Out':'EVA_out',
                    'avg_Header_BR_PV':'Header_BR_PV',
                    'avg_RAD_out':'RAD_out',
                    'avg_Scale':'Scale', 
                    'avg_DFM_RichGas':'DFM_RichGas', 
                    'avg_GA_H2':'GA_H2',
+                   'avg_GA_CO2':'GA_CO2',
+                   'avg_GA_CO':'GA_CO',
                    'avg_Air_MFC_SET_SV':'Air_MFC_SET_SV',
-                   #'avg_H2_MFC_SET_SV':'H2_MFC_SET_SV',
+                   'avg_H2_MFC_SET_SV':'H2_MFC_SET_SV',
                    'avg_Pump_SET_SV':'Pump_SET_SV',
                    'avg_Lambda':'Lambda'
                   }
+
         else:
             pass
         
@@ -118,16 +129,41 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
             df = df.where(_bmask, 0)
         else:
             pass
+        
+        # set to global var
+        get_values = lambda df, col : df[col] if df.get(col) != None else None
+        config.Steady_State_lst = get_values(df_sum, 'Steady State')
+        config.avg_H2_flow_lst = get_values(df_sum, 'avg_H2_flow')
+        config.ideal_H2_flow_lst = get_values(df_sum, 'ideal_H2_flow')
+        config.avg_Air_MFC_SET_SV_lst = get_values(df_sum, 'avg_Air_MFC_SET_SV')
+        config.avg_H2_MFC_SET_SV_lst = get_values(df_sum, 'avg_H2_MFC_SET_SV')
+        config.avg_GA_H2_lst = get_values(df_sum, 'avg_GA_H2')
+        config.avg_GA_CO2_lst = get_values(df_sum, 'avg_GA_CO2')
+        config.avg_GA_CO_lst = get_values(df_sum, 'avg_GA_CO')
+#         config.avg_TC6_lst = df_sum['avg_TC6'].values
+#         config.avg_TC7_lst = df_sum['avg_TC7'].values
+        config.avg_TC8_lst = get_values(df_sum, 'avg_TC8')
+        config.avg_TC9_lst = get_values(df_sum, 'avg_TC9')
+        config.avg_TC10_lst = get_values(df_sum, 'avg_TC10')
+#         config.avg_TC11_lst = df_sum['avg_TC11'].values
+        config.avg_EVA_Out_lst = get_values(df_sum, 'avg_EVA_Out')
+        config.avg_DFM_RichGas_lst = get_values(df_sum, 'avg_DFM_RichGas')
+        config.con_rate_lst = get_values(df_sum, 'con_rate')
+        config.avg_Scale_lst = get_values(df_sum, 'avg_Scale')
+        config.initial_time_lst = get_values(df_sum, 'Init[s]')
+        config.end_time_lst = get_values(df_sum, 'End[s]')
+        config.avg_Pump_SET_SV_lst = get_values(df_sum, 'avg_Pump_SET_SV')
+        
     
     if Ploting:
         #plt.clf()
-        fig, (ax_TC, ax_DFM, ax_GA, ax_heff) = plt.subplots(4, constrained_layout=True, figsize=(10, 10), sharex=False)
+        fig, (ax_TC, ax_DFM, ax_GA, ax_con) = plt.subplots(4, constrained_layout=True, figsize=(10, 10), sharex=False)
         fig.canvas.toolbar_position = 'left'
         
         #ax_TC_2 = ax_TC.twinx()
         if config.db_name == 'Reformer_SE':
             pd.DataFrame({'BR':df['TC10']}, index=df.index).plot(legend=True, ax=ax_TC, kind='area', color='lightblue',
-                                                                ylim=(0,500), yticks=range(0,500,50), ylabel='Temp[oC]',
+                                                                ylim=(0,600), yticks=range(0,600,50), ylabel='Temp[oC]',
                                                                 title=f'TC_{Table_name}', xlim=Time, xticks=range(Time[0],Time[1],1200)
                                                                )
             df_TC_2 = pd.DataFrame({
@@ -138,7 +174,7 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
                 'TC11':df['TC11'],
                 'EVA_out':df['EVA_Out'],
             }, index=df.index).plot(legend=True, ax=ax_TC, secondary_y=True, xlabel='Time[s]')
-            df_TC_2.set(ylabel='Temp [oC]', ylim=(0,500), yticks=range(0,500,50))
+            df_TC_2.set(ylabel='Temp [oC]', ylim=(0,600), yticks=range(0,600,50))
 
         elif config.db_name == 'Reformer_BW':
             pd.DataFrame({'BR':df['TC7']}, index=df.index).plot(legend=True, ax=ax_TC, kind='area', color='lightblue',
@@ -194,8 +230,8 @@ def plot(Table_name: str, Time: tuple, SS: bool, Calc: bool, Ploting: bool):
         ax_GA_2.set_ylim(0,5)
         
         if not df_sum.empty:
-            _effls.plot(legend=False, ax=ax_heff, kind='area', stacked=False, 
-                    title=f'heff_{Table_name}', 
+            _effls.plot(legend=False, ax=ax_con, kind='area', stacked=False, 
+                    title=f'con_{Table_name}', 
                     ylabel='con_rate [%]',
                      xlabel='Time[s]',
                     #grid=True,  
