@@ -1,6 +1,6 @@
-# Heating value version 1.4.1
+# Heating value version 1.5.0
 
-from chemicals import MW, combustion_stoichiometry, Hfl, HHV_stoichiometry, CAS_from_any, LHV_from_HHV
+from chemicals import MW, combustion_stoichiometry, Hfl, Hfg, HHV_stoichiometry, CAS_from_any, LHV_from_HHV, combustion_data
 
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
 
@@ -165,7 +165,7 @@ def deltaH(t: float, A, B, C, D, E, F, G, H):
 
 # Calculate delta H of the product after combustion (the exhaust)
 
-def combustion(fuel: str, f_amount: float, air_amount: float, outlet_T: float): # exhaust product: H20, CO2, O2, N2, CO
+def combustion(fuel: str, f_amount: float, air_amount: float, outlet_T: float, com_eff = 1): # exhaust product: H20, CO2, O2, N2, CO
     '''
     air_amount: float [LPM]
     fuel: str, fuel type [MeOH, H2]
@@ -178,22 +178,74 @@ def combustion(fuel: str, f_amount: float, air_amount: float, outlet_T: float): 
     RR_O2    = air_amount / R / T * P / 4.76 #[mole/min]
     RR_N2    = RR_O2 * 3.76                  #[mole/min]
     
+    # To calculate parameters of incomplete combustion
+    if com_eff == 1: # complete
+        if fuel == 'MeOH':
+            CS = {'C': 1, 'H': 4, 'O': 1}
+            Hf = Hfl(CAS_from_any('methanol'), method = 'WEBBOOK')
+        elif fuel == 'H2':
+            CS = {'C': 0, 'H': 2, 'O': 0}
+            Hf = 0
+        else:
+            pass
+        com_data = combustion_data(CS, Hf = Hf)
+    elif com_eff > 1 or com_eff < 0 :
+        return ValueError('"com_eff" must between 0 ~ 1!')
+    else: # incmoplete
+        if fuel == 'MeOH':
+            class InComData(object):
+                def __init__(self, stoichiometry, HHV, Hf):
+                    self.stoichiometry = stoichiometry
+                    self.HHV = HHV
+                    self.Hf = Hf
+                @property
+                def LHV(self):
+                    """Lower heating value [LHV; in J/mol]"""
+                    return LHV_from_HHV(self.HHV, self.stoichiometry.get('H2O'))
+                def __repr__(self):
+                    return 'IncompleteCombustionData(stoichiometry=%s, HHV=%s, Hf=%s)' % (
+                    self.stoichiometry, self.HHV, self.Hf)
+            CS = {'C': 1, 'H': 4, 'O': 1}
+            Hf = Hfl(CAS_from_any('methanol'), method = 'WEBBOOK')
+            stoichiometry = {
+            'CO2': com_eff,
+            'CO': round(1 - com_eff, 2),
+            'H2O': 2.0,
+            }
+            stoichiometry['O2'] = round((stoichiometry['CO2'] * 2 + stoichiometry['H2O'] + stoichiometry['CO'] - 1) / 2 * (-1), 2)
+            HHV = round(Hfg(CAS_from_any('CO2'), method = 'WEBBOOK') * com_eff + Hfg(CAS_from_any('CO'), method = 'WEBBOOK') * (1 - com_eff) + Hfl(CAS_from_any('H2O'), method = 'WEBBOOK') * stoichiometry['H2O'] - Hf, 2)
+            com_data = InComData(stoichiometry, HHV, Hf)
+        elif fuel == 'H2':
+            CS = {'C': 0, 'H': 2, 'O': 0}
+            Hf = 0
+            com_data = combustion_data(CS, Hf = Hf)
+            print('Assume the combustion is completely for H2 always.')
+        else:
+            pass
+
     # Heating value of fuel 
     # Using MeOH or H2 to be fuel, complete combustion
     if fuel == 'MeOH':
-        PR_CO2   = f_amount / MW_MeOH * CS_MeOH['CO2']
-        PR_H2O   = f_amount / MW_MeOH * CS_MeOH['H2O']
-        PR_O2    = RR_O2 - (CS_MeOH['O2'] * (-1)) * (f_amount / MW_MeOH) #[mole/min]
-        AFR = ((CS_MeOH['O2'] * MW_O2 * (-1)) * (f_amount / MW_MeOH)) / f_amount # Air-fuel ratio
+        PR_CO2   = f_amount / MW_MeOH * com_data.stoichiometry['CO2']
+        PR_H2O   = f_amount / MW_MeOH * com_data.stoichiometry['H2O']
+        if com_eff != 1:
+            PR_CO = f_amount / MW_MeOH * com_data.stoichiometry['CO']
+        else:
+            PR_CO = 0
+        MeOH_out = f_amount / MW_MeOH * (1 - com_data.stoichiometry['CO2'])
+        PR_O2    = RR_O2 - (com_data.stoichiometry['O2'] * (-1)) * (f_amount / MW_MeOH) #[mole/min]
+        AFR = ((com_data.stoichiometry['O2'] * MW_O2 * (-1)) * (f_amount / MW_MeOH)) / f_amount # Air-fuel ratio
         AFR_Real = round((RR_O2 * MW_O2) / f_amount, 4)
         Lambda   = round(AFR_Real / AFR, 4)
-        Give_Heat = HHV_Jg_MeOH * f_amount / 1000 / 60 # kW
+        Give_Heat = (com_data.HHV * (-1) / MW_MeOH) * f_amount / 1000 / 60 # kW
     elif fuel == 'H2':
         H2_gpm   = MW_H2 * f_amount / R / T * P #[g/min]
         PR_CO2   = 0
-        PR_H2O   = f_amount / MW_H2
-        PR_O2    = RR_O2 - (CS_H2['O2'] * (-1)) * (H2_gpm / MW_H2) #[mole/min]
-        AFR = ((CS_H2['O2'] * MW_O2 * (-1)) * (f_amount / MW_H2)) / H2_gpm # Air-fuel ratio
+        PR_CO    = 0
+        PR_H2O   = H2_gpm / MW_H2 * com_data.stoichiometry['H2O']
+        H2_out   = H2_gpm / MW_H2 * (1 - com_data.stoichiometry['CO2'])
+        PR_O2    = RR_O2 - (com_data.stoichiometry['O2'] * (-1)) * (H2_gpm / MW_H2) #[mole/min]
+        AFR = ((com_data.stoichiometry['O2'] * MW_O2 * (-1)) * (H2_gpm / MW_H2)) / H2_gpm # Air-fuel ratio
         AFR_Real = round((RR_O2 * MW_O2) / H2_gpm, 4)
         Lambda   = round(AFR_Real / AFR, 4)
         Give_Heat = HHV_Jg_H2 * H2_gpm / 1000 / 60 # kW
@@ -202,8 +254,6 @@ def combustion(fuel: str, f_amount: float, air_amount: float, outlet_T: float): 
 
     # product
     PR_N2    = RR_N2 #[mole/min]
-    PR_CO    = 0 #[mole/min]
-    MeOH_out = 0 #[mole/min]
 
     outlet_T = outlet_T + 273
     t = outlet_T / 1000
@@ -224,6 +274,10 @@ def combustion(fuel: str, f_amount: float, air_amount: float, outlet_T: float): 
     # delta_H of CO2, CO
     delta_H_CO2 = deltaH(outlet_T,**CO2)
     delta_H_CO = deltaH(outlet_T,**CO)
+    delta_H_H2 = deltaH(outlet_T,**H2_Lower)
+
+    # MeOH, Cp regression line, 279 ~ 585 K
+    delta_H_MeOH = (0.0808 * outlet_T + 19.265) * f_amount / MW_MeOH * outlet_T / 1000 # [kJ/min]
 
     # Waste heat
     # Out tempertuer can not equal or lower than 298 K
@@ -245,7 +299,7 @@ def combustion(fuel: str, f_amount: float, air_amount: float, outlet_T: float): 
     Waset_Heat = round(Waset_Heat, 4)
     Ideal_Reformer_Get_Heat = round((Give_Heat - Waset_Heat), 4) # kW
 
-    return Ideal_Reformer_Get_Heat, Waset_Heat, WP_H2O, WP_CO2, WP_O2, WP_N2, WP_CO
+    return Ideal_Reformer_Get_Heat, Waset_Heat, Give_Heat, WP_H2O, WP_CO2, WP_O2, WP_N2, WP_CO
 
 
 def reformer_heat(inlet_T: float, outlet_T: float, f_amount: float, p_amount: float, gas_comp: dict, residual_MeOH = 0.0):
@@ -297,6 +351,52 @@ def reformer_heat(inlet_T: float, outlet_T: float, f_amount: float, p_amount: fl
     H_ratio = round(Reaction_H0 / Reaction_Heat_Need * 100, 4) # %
     return Reaction_Heat_Need, Reaction_H0, H_ratio
 
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+# To calculate volume percentage of all products and unreacted species
+
+def VolumePercentage(f_amount: float, DFM_total: float, convertion: float, P: float, RAD_Out: float, gas_comp: dict):
+    '''
+    f_amount: float, scale in [g/min]
+    DFM_total: float, DFM_RichGas + DFM_AOG [LPM]
+    convertion: float, convertion rate [%]
+    P: float, pressure of gas products [bar]
+    RAD_Out: float, temperture of gas products after cooling [oC]
+    gas_comp: dict, gas composition [%]
+    return:
+    1. Precentage of products inculding H2, CO2, CO, MeOH, H2O
+    2. Total volume [LPM]
+    all units will turn into mole to calculate the ratio of volume
+    '''
+    P = P / 1.01325 + 1 # bar to atm
+    R = 0.082 # ideal gas constant
+    T = RAD_Out + 273 # oC to K
+    convertion = convertion / 100
+    # gas porducts mole
+    H2_flow = gas_comp['H2'] / 100 * DFM_total * P / R / T
+    CO2_flow = gas_comp['CO2'] / 100 * DFM_total * P / R / T
+    CO_flow = gas_comp['CO'] / 100 * DFM_total * P / R / T
+    
+    # remaining MeOH & H2O mole
+    MeOH_after = f_amount * 0.543 / MW('methanol') * (1 - convertion)
+    H2O_after = f_amount * (1 - 0.543) / MW('H2O') - f_amount * 0.543 / MW('methanol') * convertion
+
+    all_mole = H2_flow + CO2_flow + CO_flow + MeOH_after + H2O_after
+    H2_P = round(H2_flow / all_mole * 100, 2)
+    CO2_P = round(CO2_flow / all_mole * 100, 2)
+    CO_P = round(CO_flow / all_mole * 100, 2)
+    MeOH_P = round(MeOH_after / all_mole * 100, 2)
+    H2O_P = round(H2O_after / all_mole * 100, 2)
+    all_V = round(all_mole * R * T / P, 2)
+    Volume_Percentage = {
+        'H2': H2_P,
+        'CO2': CO2_P,
+        'CO': CO_P,
+        'MeOH': MeOH_P,
+        'H2O': H2O_P,
+        'Total': all_V,
+    }
+    return Volume_Percentage
 # ----------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 if __name__ == '__main__':
