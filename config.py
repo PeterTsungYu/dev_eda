@@ -60,7 +60,7 @@ class Set_Point:
                 self.ss_time.append((u[0], u[-1]))
         self.ss_time = tuple(self.ss_time)
         
-    def avg_calc(self, df:pd.core.frame.DataFrame, d:dict):
+    def avg_calc(self, df:pd.core.frame.DataFrame, d:dict, db_name: str):
         _ss_time = self.ss_time
         self.ss_avg = {'avg_H2_flow':[], 'ideal_H2_flow':[], 'AOG/Rcih':[], 'H2/MeOHWater_L/g':[], 'con_rate':[], 'heff':[], 'get':[], 'wasted':[], 'H2%':[], 'CO2%':[], 'CO%':[], 'H2O%':[], 'MeOH%':[], 'Products mole':[],}
         if _ss_time:
@@ -161,10 +161,6 @@ class Set_Point:
             self.sum_rows = pd.concat(_sum_rows)
         else:
             pass
-
-        
-cur = None
-db_name=''
 
 # Global var
 Steady_State_lst = []

@@ -1,36 +1,19 @@
 # library
-import os
 import numpy as np
 import pandas as pd
 import requests
 import random
-from dash import Dash, dcc, html, Input, Output
-import plotly.express as px
-import dash_bootstrap_components as dbc
 import pandas as pd
-from dotenv import load_dotenv
 import mariadb
+from dash import Dash, dcc, html, Input, Output, State, dash_table
+import dash_bootstrap_components as dbc
+import plotly.express as px
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
 
 # customized library
-from utility import db_conn, plot
+from utility import db_conn, db_get_table_lst, eda
 import config 
-
-load_dotenv()
-username = os.environ.get("db_user")
-password = os.environ.get("db_pwd")
-
-def db_get_table_lst(db_name:str):
-    global username, password
-    try:
-        cur = db_conn(username=username, password=password, db_name=db_name)
-        cur.execute('SHOW tables')
-        source_table_lst = [u for i in cur.fetchall()[:] for u in i][::-1]
-    except mariadb.Error as e:
-        print(f"Error connecting to MariaDB Platform: {e}")
-        return None
-    finally:
-        cur.close()
-    return source_table_lst
 
 
 app = Dash(__name__, 
@@ -112,20 +95,21 @@ app.layout = html.Div([
             html.Div(
                 [
                 dbc.RadioItems(
-                    id="display_mode",
+                    id="eda_display_mode",
                     className="btn-group",
                     inputClassName="btn-check",
                     labelClassName="btn btn-outline-primary",
                     labelCheckedClassName="active",
                     options=[
-                        {"label": "Only Calc", "value": 'Calc'},
-                        {"label": "Plot It!", "value": 'Ploting'},
+                        {"label": "Table", "value": 'Table'},
+                        {"label": "Visualization", "value": 'Visualization'},
                     ],
-                    value='Calc',
+                    value='Table',
                 ),
                 dcc.Checklist(
-                    id="steady_state_check",
-                    options=['Steady-State Only'],
+                    id="eda_steady_state_check",
+                    options=[{'label': 'Steady-State Only', 'value': 'SS'},],
+                    value=['SS'],
                     #inline=True,
                     style={
                         "margin-left":'2em',
@@ -143,68 +127,95 @@ app.layout = html.Div([
                     }
             ),
             html.Div([
-            dcc.Dropdown(
-                ['reformer', 'Reformer_BW', 'Reformer_BW_Alert', 'Reformer_SE', 'Reformer_SE_Alert', 'Prototype_15kW', 'Prototype_15kW_Alert'],
-                'reformer',
-                placeholder='Select A Database...',
-                id='eda_source_db',
-                style={"width": "50%"},
-            ),
-            dcc.Dropdown(
-                options=[],
-                placeholder='Analyze A Source Table...',
-                id='eda_db_table_dropdown',
-                style={"width": "50%"},
-            ),
+                dcc.Dropdown(
+                    ['reformer', 'Reformer_BW', 'Reformer_BW_Alert', 'Reformer_SE', 'Reformer_SE_Alert', 'Prototype_15kW', 'Prototype_15kW_Alert'],
+                    'reformer',
+                    placeholder='Select A Database...',
+                    id='eda_source_db',
+                    style={"width": "50%"},
+                    persistence=True,
+                ),
+                dcc.Dropdown(
+                    options=[],
+                    placeholder='Analyze A Source Table...',
+                    id='eda_db_table_dropdown',
+                    style={"width": "50%"},
+                ),
+                html.Br(),
+                dbc.Card(
+                    dbc.CardBody([
+                            html.H6("Time Range Slider [min]"),
+                            html.P(id='row_count', children='Duration: None'),
+                            dcc.RangeSlider(
+                            step=10,
+                            id='eda_time_range_slider',
+                            updatemode='mouseup',
+                            tooltip={"placement": "bottom", "always_visible": True},
+                            marks=None,
+                            pushable=1,
+                            allowCross=False,
+                            ),
+                        ]
+                    )
+                ),
+                dbc.Card(
+                    dbc.CardBody([
+                            html.H6("Summary Table"),
+                            dash_table.DataTable(
+                                                id='eda_table_sum', 
+                                                editable=False,
+                                                filter_action="native",
+                                                sort_action="native",
+                                                #sort_mode="multi",
+                                                column_selectable="multi",
+                                                row_selectable="multi",
+                                                #row_deletable=True,
+                                                selected_columns=[],
+                                                selected_rows=[],
+                                                style_table={'overflowX': 'auto',
+                                                            'minWidth': '100%',
+                                                            },
+                                                fixed_columns={ 'headers': True, 'data': 1 },
+                                                #css=[{'selector': 'table', 'rule': 'table-layout: fixed'}],
+                                                style_cell={ 
+                                                            'textAlign': 'center',               # ensure adequate header width when text is shorter than cell's text
+                                                            'minWidth': '180px', 'maxWidth': '180px', 'width': '180px',
+                                                            'whiteSpace': 'normal',
+                                                            'height': '35px',
+                                                            },
+                                                style_header={
+                                                            'backgroundColor': '#0074D9',
+                                                            'color': 'white'
+                                                            },
+                                                export_format='xlsx',
+                                                export_headers='display',
+                                        )
+                        ]
+                    )
+                ),
             ],
             #style=dict(display='flex'),
             ),
             html.Br(),
+            html.Div(id='eda_graph_container'),
+            html.Div(id="debug_output"),
         ]),
     ],
     body=True,
     ),
-    
-    html.Div(id="debug_output"),
-
-    html.Div([
-            dcc.Dropdown(
-                df['Indicator Name'].unique(),
-                'Fertility rate, total (births per woman)',
-                id='xaxis-column'
-            ),
-            dcc.RadioItems(
-                ['Linear', 'Log'],
-                'Linear',
-                id='xaxis-type',
-                inline=True
-            ),
-            dcc.Dropdown(
-                df['Indicator Name'].unique(),
-                'Life expectancy at birth, total (years)',
-                id='yaxis-column'
-            ),
-            dcc.RadioItems(
-                ['Linear', 'Log'],
-                'Linear',
-                id='yaxis-type',
-                inline=True
-            )
-        ],
-        ),
-
-    dcc.Graph(id='indicator-graphic'),
-
-    dcc.Slider(
-        df['Year'].min(),
-        df['Year'].max(),
-        step=None,
-        id='year--slider',
-        value=df['Year'].max(),
-        marks={str(year): str(year) for year in df['Year'].unique()},
-
-    )
 ])
+
+
+@app.callback(
+    Output('debug_output', 'children'),
+    Input('eda_display_mode', 'value'),
+    Input('eda_steady_state_check', 'value'),
+    Input('eda_time_range_slider', 'value'), 
+)
+def debug(a, b, c):
+    print(a,b, c)
+    return a, b[0], c[0], c[1] 
+
 
 @app.callback(
     Output("archive_output", "children"), 
@@ -223,10 +234,9 @@ def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination
         return "Something Is Missing..."
     else:
         #print(n_clicks_timestamp)
-        global username, password
         succeed = False
         try:
-            cur = db_conn(username=username, password=password, db_name=destination_db)
+            cur = db_conn(db_name=destination_db)
             print(f"create table {new_table_name} as select * from {source_db}.{db_table};")
             cur.execute(f"create table {new_table_name} as select * from {source_db}.{db_table};")
             succeed = True
@@ -242,44 +252,86 @@ def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination
 @app.callback(
     Output('eda_db_table_dropdown', 'options'),
     Input('eda_source_db', 'value')
-    )
+)
 def update_eda_table_dropdown(eda_source_db):
     return db_get_table_lst(eda_source_db)
 
+
 @app.callback(
-    Output('debug_output', 'children'),
-    Input('display_mode', 'value'),
-    Input('steady_state_check', 'value'), 
+    Output('row_count', 'children'),
+    Output('eda_time_range_slider', 'max'),
+    Output('eda_time_range_slider', 'value'),
+    Input('eda_source_db', 'value'),
+    Input('eda_db_table_dropdown', 'value'),
 )
-def debug(a, b):
-    print(a,b)
-    return a, b[0] 
+def update_eda_time_slider(eda_source_db, eda_db_table):
+    _lst = [eda_source_db, eda_db_table]
+    #print(_lst)
+    if any(_arg == None for _arg in _lst):
+        return ['Duration: None', None, [None,None]]
+    else:
+        succeed = False
+        try:
+            cur = db_conn(db_name=eda_source_db)
+            cur.execute(f"SELECT * FROM {eda_db_table}")
+            cur.fetchall()
+            max = cur.rowcount
+            #print(max)
+            succeed = True
+        except mariadb.Error as e:
+            print(f"Error connecting to MariaDB Platform: {e}")
+            return ['Duration: None', None, [None,None]]
+        finally:
+            if succeed:
+                cur.close()
+                return [f'Duration: {round(max/60,2)} [min]', max/60, [0, max/60]]
+
 
 @app.callback(
-    Output('indicator-graphic', 'figure'),
-    Input('xaxis-column', 'value'),
-    Input('yaxis-column', 'value'),
-    Input('xaxis-type', 'value'),
-    Input('yaxis-type', 'value'),
-    Input('year--slider', 'value'))
-def update_graph(xaxis_column_name, yaxis_column_name,
-                 xaxis_type, yaxis_type,
-                 year_value):
-    dff = df[df['Year'] == year_value]
-    print(dff.head())
-    fig = px.scatter(x=dff[dff['Indicator Name'] == xaxis_column_name]['Value'],
-                     y=dff[dff['Indicator Name'] == yaxis_column_name]['Value'],
-                     hover_name=dff[dff['Indicator Name'] == yaxis_column_name]['Country Name'])
+    Output('eda_table_sum', 'data'),
+    Output('eda_table_sum', 'columns'),
+    Output('eda_graph_container', 'children'),
+    Input('eda_time_range_slider', 'value'),
+    Input('eda_display_mode', 'value'),
+    Input('eda_steady_state_check', 'value'),
+    Input('eda_source_db', 'value'),
+    Input('eda_db_table_dropdown', 'value'),
 
-    fig.update_layout(margin={'l': 40, 'b': 40, 't': 10, 'r': 0}, hovermode='closest')
+)
+def update_eda_report(eda_time_range, _mode:str, _ss:str, eda_source_db, eda_db_table):
+    _lst = [eda_time_range, _mode, _ss, eda_source_db, eda_db_table]
+    #print(_lst)
+    if any(_arg == None for _arg in _lst):
+        return None, None, None
+    else:
+        succeed = False
+        try:
+            table_data, table_columns, fig = eda(db_name=eda_source_db, Table_name=eda_db_table, Time=eda_time_range, SS=_ss, mode=_mode)    
+            succeed = True
+        except mariadb.Error as e:
+            print(f"Error connecting to MariaDB Platform: {e}")
+            return None, None, None
+        finally:
+            if succeed:
+                return table_data, table_columns, fig
 
-    fig.update_xaxes(title=xaxis_column_name,
-                     type='linear' if xaxis_type == 'Linear' else 'log')
 
-    fig.update_yaxes(title=yaxis_column_name,
-                     type='linear' if yaxis_type == 'Linear' else 'log')
-
-    return fig
+@app.callback(
+    Output('eda_table_sum', 'style_data_conditional'),
+    Input('eda_table_sum', 'selected_columns'),
+    Input('eda_table_sum', 'selected_rows')
+)
+def update_eda_table_styles(selected_columns, selected_rows):
+    print(selected_columns, selected_rows)
+    selected_cols_conditions = [{
+                                    'if': { 'column_id': i },
+                                    'background_color': '#D2F3FF'
+                                } for i in selected_columns]
+    selected_rows_conditions = [{
+                                    'if': { 'row_index': i },
+                                    'background_color': '#11FFBB'
+                                } for i in selected_rows]
+    return selected_cols_conditions + selected_rows_conditions
 
 
 if __name__ == '__main__':
