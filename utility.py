@@ -15,6 +15,8 @@ import plotly.graph_objects as go
 load_dotenv()
 username = os.environ.get("db_user")
 password = os.environ.get("db_pwd")
+State_eda_df_sum = pd.DataFrame()
+State_eda_df = pd.DataFrame()
 
 def db_conn(db_name:str):
     global username, password
@@ -51,17 +53,26 @@ def db_get_table_lst(db_name:str):
     return source_table_lst
 
 
-def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
+def db_table_to_df(db_name:str, Table_name: str):
+    df = pd.DataFrame()
     try:
         cur = db_conn(db_name=db_name)
         cur.execute(f"SELECT * FROM {Table_name}")
         df = pd.DataFrame(cur.fetchall(), columns=[entry[0] for entry in cur.description]).set_index('Id')
     except mariadb.Error as e:
         print(f"Error connecting to MariaDB Platform: {e}")
-        return None, None, None
     finally:
         cur.close()
+        return df
+
+
+def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
+    df = db_table_to_df(db_name=db_name, Table_name=Table_name)
+    if df.empty:
+        return None, None, None, 'db is not loaded'
     
+    global State_eda_df
+    State_eda_df = df
     _leng = len(df)
     _bls=[]
     _effls = 0
@@ -153,20 +164,25 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
 #                     print(_wasted)
     
     df_sum = pd.DataFrame()
+    _Steady_state = False
     for i in Set_Point_lst:
         i.gen_dataframe()
         if i.ss_time:
             df_sum = pd.concat([df_sum, i.sum_rows])
     if not df_sum.empty:
+        _Steady_state = True
         df_sum = df_sum.sort_values(by=['Init[s]']).reset_index(drop=True)
+        global State_eda_df_sum
+        State_eda_df_sum = df_sum
         table_data = df_sum.to_dict('records')
         table_columns = [{"name": i, "id": i, "selectable": True} for i in df_sum.columns]
         if mode == 'Table':
-            return table_data, table_columns, None
+            return table_data, table_columns, None, f'Steady_State: {_Steady_state}'
     else:
         print('No Steady-State is found!')
         if mode == 'Table':
-            return None, None, None
+            table_columns = [{"name": i, "id": i, "selectable": True} for i in df.columns]
+            return None, table_columns, None, f'Steady_State: {_Steady_state}'
 
 
     if mode == 'Visualization':
@@ -296,78 +312,79 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
         fig_Gas_Curve.for_each_xaxis(lambda x: x.update(showgrid=False))
         fig_Gas_Curve.for_each_yaxis(lambda x: x.update(showgrid=False))
 
-        if not df_sum.empty:
+        if _Steady_state:
             #print(table_data, table_columns, graph_lst)
-            return table_data, table_columns, graph_lst
-        else:
-            return None, None, graph_lst
-        
-        if not df_sum.empty:
-            _effls.plot(legend=False, ax=ax_con, kind='area', stacked=True, 
-                    title=f'con_{Table_name}', 
-                    ylabel='con_rate [%]',
-                    xlabel='Time[s]',
-                    #grid=True,  
-                    xlim=Time, 
-                    xticks=range(Time[0],Time[1],1200),
-                    ylim=(0,105), 
-                    yticks=range(0,105,10)
-                   )
+            df_con_rate = df_sum[['Steady State', 'con_rate']].reset_index()
+            df_con_rate.columns = ['order', 'Steady State', 'value']
+            df_con_rate['order'] = [f'Order_{i+1}' for i in df_con_rate['order']]
+            df_con_rate['type'] = 'con_rate'
+            df_heff = df_sum[['Steady State', 'heff']].reset_index()
+            df_heff.columns = ['order', 'Steady State', 'value']
+            df_heff['order'] = [f'Order_{i+1}' for i in df_heff['order']]
+            df_heff['type'] = 'heff'
+            df_cluster = pd.concat([df_con_rate, df_heff], sort=False)
+            #print(df_cluster)
+            fig_Rate_Bar = px.bar(df_cluster, title='Different Rate Cluster Bar', x="type", y="value",
+                        color='order', barmode='group', text='Steady State', labels={"value": "Percentage [%]", "type": "Rate Category"})
+            graph_lst.append(
+                dcc.Graph(id='fig_Rate_Bar', figure=fig_Rate_Bar) 
+            )
             
-            df_heat = pd.DataFrame({
-            'heat get':_get,
-            'heff':_heff,
-            'heat wasted':_wasted,
-            }, index=df.index)
-
-            df_heat.plot(legend=True, ax=ax_heff, stacked=False, 
-                    title=f'heff_{Table_name}', 
-                    ylabel='[%]',
-                    xlabel='Time[s]',
-                    #grid=True,  
-                    xlim=Time, 
-                    xticks=range(Time[0],Time[1],1200),
-                    ylim=(0,105), 
-                    yticks=range(0,105,10)
-                   )
-        #plt.show()
-        return 'plot'
-    elif mode == 'Summary':
-        return 'Summary'
+            df_thermo = df_sum[['Steady State', 'get', 'wasted']].reset_index()
+            df_thermo.columns = ['order', 'Steady State', 'get', 'wasted']
+            fig_Thermo_Bar = px.bar(df_thermo, x='order', y=["wasted", "get"], labels={"value": "heat [kW]"}, title="Thermodynamics Calc Bar", text='value')
+            graph_lst.append(
+                dcc.Graph(id='fig_Thermo_Bar', figure=fig_Thermo_Bar) 
+            )
+            return table_data, table_columns, graph_lst, f'Steady_State: {_Steady_state}'
+        else:
+            table_columns = [{"name": i, "id": i, "selectable": True} for i in df.columns]
+            return None, table_columns, graph_lst, f'Steady_State: {_Steady_state}'
     
         # set to global var
-    get_values = lambda df, col : df.get(col) if not df_sum.empty else None
-    config.Steady_State_lst = get_values(df_sum, 'Steady State')
-    config.avg_H2_flow_lst = get_values(df_sum, 'avg_H2_flow')
-    config.ideal_H2_flow_lst = get_values(df_sum, 'ideal_H2_flow')
-    config.avg_Air_MFC_SET_SV_lst = get_values(df_sum, 'avg_Air_MFC_SET_SV')
-    config.avg_H2_MFC_SET_SV_lst = get_values(df_sum, 'avg_H2_MFC_SET_SV')
-    config.avg_GA_H2_lst = get_values(df_sum, 'avg_GA_H2')
-    config.avg_GA_CO2_lst = get_values(df_sum, 'avg_GA_CO2')
-    config.avg_GA_CO_lst = get_values(df_sum, 'avg_GA_CO')
-#         config.avg_TC6_lst = df_sum['avg_TC6'].values
-#         config.avg_TC7_lst = df_sum['avg_TC7'].values
-    config.avg_TC8_lst = get_values(df_sum, 'avg_TC8')
-    config.avg_TC9_lst = get_values(df_sum, 'avg_TC9')
-    config.avg_TC10_lst = get_values(df_sum, 'avg_TC10')
-#         config.avg_TC11_lst = df_sum['avg_TC11'].values
-    config.avg_EVA_Out_lst = get_values(df_sum, 'avg_EVA_Out')
-#         config.avg_DFM_RichGas_lst = get_values(df_sum, 'avg_DFM_RichGas')
-    config.avg_DFM_RichGas_1min_lst = get_values(df_sum, 'avg_DFM_RichGas_1min')
-    config.avg_DFM_AOG_lst = get_values(df_sum, 'avg_DFM_AOG')
-    config.avg_DFM_AOG_1min_lst = get_values(df_sum, 'avg_DFM_AOG_1min')
-    config.avg_current_lst = get_values(df_sum, 'avg_current')
-    config.con_rate_lst = get_values(df_sum, 'con_rate')
-    config.avg_Scale_lst = get_values(df_sum, 'avg_Scale')
-    config.initial_time_lst = get_values(df_sum, 'Init[s]')
-    config.end_time_lst = get_values(df_sum, 'End[s]')
-    config.avg_Pump_SET_SV_lst = get_values(df_sum, 'avg_Pump_SET_SV')
-    config.avg_Header_EVA_PV_lst = get_values(df_sum, 'avg_Header_EVA_PV')
-    config.avg_Exhaust_gas_lst = get_values(df_sum, 'avg_Exhaust_gas')
-    config.avg_PCB_SET_PV_lst = get_values(df_sum, 'avg_PCB_SET_PV')
+    get_values = lambda df, col : df.get(col) if _Steady_state else None
+    Steady_State_lst = get_values(df_sum, 'Steady State')
+    avg_H2_flow_lst = get_values(df_sum, 'avg_H2_flow')
+    ideal_H2_flow_lst = get_values(df_sum, 'ideal_H2_flow')
+    avg_Air_MFC_SET_SV_lst = get_values(df_sum, 'avg_Air_MFC_SET_SV')
+    avg_H2_MFC_SET_SV_lst = get_values(df_sum, 'avg_H2_MFC_SET_SV')
+    avg_GA_H2_lst = get_values(df_sum, 'avg_GA_H2')
+    avg_GA_CO2_lst = get_values(df_sum, 'avg_GA_CO2')
+    avg_GA_CO_lst = get_values(df_sum, 'avg_GA_CO')
+#         avg_TC6_lst = df_sum['avg_TC6'].values
+#         avg_TC7_lst = df_sum['avg_TC7'].values
+    avg_TC8_lst = get_values(df_sum, 'avg_TC8')
+    avg_TC9_lst = get_values(df_sum, 'avg_TC9')
+    avg_TC10_lst = get_values(df_sum, 'avg_TC10')
+#         avg_TC11_lst = df_sum['avg_TC11'].values
+    avg_EVA_Out_lst = get_values(df_sum, 'avg_EVA_Out')
+#         avg_DFM_RichGas_lst = get_values(df_sum, 'avg_DFM_RichGas')
+    avg_DFM_RichGas_1min_lst = get_values(df_sum, 'avg_DFM_RichGas_1min')
+    avg_DFM_AOG_lst = get_values(df_sum, 'avg_DFM_AOG')
+    avg_DFM_AOG_1min_lst = get_values(df_sum, 'avg_DFM_AOG_1min')
+    avg_current_lst = get_values(df_sum, 'avg_current')
+    con_rate_lst = get_values(df_sum, 'con_rate')
+    avg_Scale_lst = get_values(df_sum, 'avg_Scale')
+    initial_time_lst = get_values(df_sum, 'Init[s]')
+    end_time_lst = get_values(df_sum, 'End[s]')
+    avg_Pump_SET_SV_lst = get_values(df_sum, 'avg_Pump_SET_SV')
+    avg_Header_EVA_PV_lst = get_values(df_sum, 'avg_Header_EVA_PV')
+    avg_Exhaust_gas_lst = get_values(df_sum, 'avg_Exhaust_gas')
+    avg_PCB_SET_PV_lst = get_values(df_sum, 'avg_PCB_SET_PV')
 
-def plot_cols(col_string:str, table_name:str, ax):
-    cur.execute(f"SELECT {col_string} FROM {table_name}")
-    df = pd.DataFrame(cur.fetchall(), columns=[entry[0] for entry in cur.description])
-    df.plot(ax=ax)
+
+def compared_eda(selected_rows=[], selected_columns=[]):
+    global State_eda_df, State_eda_df_sum
+    _df = State_eda_df_sum.loc[selected_rows, selected_columns]
+    #print(_df)
+    if _df.empty:
+        return None
+    else:
+        selected_fig = px.bar(_df, x=_df.index, y=selected_columns, text='value', barmode='group')
+        return dcc.Graph(id='selected_fig', figure=selected_fig) 
+    
+    
+    
+    
+    
     

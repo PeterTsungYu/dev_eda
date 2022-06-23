@@ -162,35 +162,6 @@ class Set_Point:
         else:
             pass
 
-# Global var
-Steady_State_lst = []
-avg_H2_flow_lst = []
-avg_GA_H2_lst = []
-ideal_H2_flow_lst = []
-avg_Air_MFC_SET_SV_lst = []
-avg_H2_MFC_SET_SV_lst = []
-avg_GA_CO2_lst = []
-avg_GA_CO_lst = []
-# avg_TC6_lst = []
-# avg_TC7_lst = []
-avg_TC8_lst = []
-# avg_TC9_lst = []
-avg_TC10_lst = []
-# avg_TC11_lst = []
-avg_EVA_Out_lst = []
-# avg_DFM_RichGas_lst = []
-avg_DFM_RichGas_1min_lst = []
-# avg_DFM_AOG_lst = []
-avg_DFM_AOG_1min_lst = []
-avg_current_lst = []
-con_rate_lst = []
-avg_Scale_lst = []
-initial_time_lst = []
-end_time_lst = []
-avg_Pump_SET_SV_lst = []
-avg_Header_EVA_PV_lst =[]
-avg_Exhaust_gas_lst = []
-avg_PCB_SET_PV_lst = []
 
 SE_Set_Point_lst = [Set_Point(name= '18A', temp=300,weight_rate=18, dummy=0), 
                  Set_Point(name= '34A', temp=305, weight_rate=34, dummy=0), 

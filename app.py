@@ -5,6 +5,7 @@ import requests
 import random
 import pandas as pd
 import mariadb
+from flask import send_file, request
 from dash import Dash, dcc, html, Input, Output, State, dash_table
 import dash_bootstrap_components as dbc
 import plotly.express as px
@@ -12,7 +13,8 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 # customized library
-from utility import db_conn, db_get_table_lst, eda
+from utility import db_conn, db_get_table_lst, eda, db_table_to_df, compared_eda
+import utility
 import config 
 
 
@@ -26,8 +28,6 @@ colors = {
     'background': '#111111',
     'text': '#7FDBFF'
 }
-
-df = pd.read_csv('https://plotly.github.io/datasets/country_indicators.csv')
 
 app.layout = html.Div([
     html.H1(children='Hi Platformer', 
@@ -59,6 +59,14 @@ app.layout = html.Div([
                 id='db_table_dropdown',
                 style={"width": "50%"},
             ),
+            html.H6(id='db_table_preview_title'),
+            html.Div(id='db_table_preview_container'),
+            html.A(
+                'Download Data',
+                id='download_link',
+                target="_blank"
+            ),
+            html.Br(),
             html.Br(),
             html.I(children='To Destination Database:', 
                     style={
@@ -161,6 +169,7 @@ app.layout = html.Div([
                 dbc.Card(
                     dbc.CardBody([
                             html.H6("Summary Table"),
+                            html.Div(id='eda_table_sum_debug'),
                             dash_table.DataTable(
                                                 id='eda_table_sum', 
                                                 editable=False,
@@ -196,9 +205,31 @@ app.layout = html.Div([
             ],
             #style=dict(display='flex'),
             ),
+            dbc.Card(
+                    dbc.CardBody([
+                        html.H6("Comparison Graph"),
+                        html.Div(id='eda_comparison_graph_debug'),
+                        dbc.Button('Generate Comparison Graph', id='comparison_graph_button', n_clicks=0),
+                        html.Div(id='eda_comparison_graph_container'),
+                        ])
+            ),
+            dbc.Card(
+                    dbc.CardBody([
+                        html.H6("Selection Graph"),
+                        html.Div(id='eda_selection_graph_debug'),
+                        html.Div(id='eda_selection_table_container'),
+                        dbc.Button('Generate Selection Graph', id='selection_graph_button', n_clicks=0),
+                        html.Div(id='eda_selection_graph_container'),
+                        ])
+            ),
             html.Br(),
-            html.Div(id='eda_graph_container'),
-            html.Div(id="debug_output"),
+            dbc.Card(
+                    dbc.CardBody([
+                        html.H6("Summary Graph"),
+                        html.Div(id='eda_graph_container'),
+                        ])
+            ),
+            html.Div(id="debug_output_1"),
         ]),
     ],
     body=True,
@@ -207,14 +238,42 @@ app.layout = html.Div([
 
 
 @app.callback(
-    Output('debug_output', 'children'),
+    Output('debug_output_1', 'children'),
     Input('eda_display_mode', 'value'),
     Input('eda_steady_state_check', 'value'),
     Input('eda_time_range_slider', 'value'), 
 )
 def debug(a, b, c):
-    print(a,b, c)
-    return a, b[0], c[0], c[1] 
+    print(a, b, c)
+    return a, c[0], c[1] 
+
+
+@app.callback(
+    Output('download_link', 'href'),
+    Output('db_table_preview_title', 'children'),
+    Output('db_table_preview_container', 'children'),
+    Input('db_table_dropdown', 'value'),
+)
+def update_table_preview_and_download_link(Table_name):
+    if Table_name == None:
+        return None, f'title: {Table_name}', None
+    df = db_table_to_df(db_name='reformer', Table_name=Table_name).reset_index()
+    df = df.head(5)
+    print(df)
+    table = dash_table.DataTable(df.to_dict('records'), [{"name": i, "id": i} for i in df.columns], style_table={'overflowX': 'auto','minWidth': '100%',})
+    link = '/Dash/urlToDownload?value={}'.format(Table_name)
+    return link, f'title: {Table_name}', table
+
+
+@app.server.route('/Dash/urlToDownload') 
+def download_csv():
+    Table_name = request.args.get('value')
+    df = db_table_to_df(db_name='reformer', Table_name=Table_name)
+    df.to_csv(f'./csv/{Table_name}.csv')
+    return send_file(f'csv/{Table_name}.csv',
+                     mimetype='text/csv',
+                     download_name=f'{Table_name}.csv',
+                     as_attachment=True)
 
 
 @app.callback(
@@ -237,7 +296,7 @@ def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination
         succeed = False
         try:
             cur = db_conn(db_name=destination_db)
-            print(f"create table {new_table_name} as select * from {source_db}.{db_table};")
+            #print(f"create table {new_table_name} as select * from {source_db}.{db_table};")
             cur.execute(f"create table {new_table_name} as select * from {source_db}.{db_table};")
             succeed = True
         except mariadb.Error as e:
@@ -291,6 +350,8 @@ def update_eda_time_slider(eda_source_db, eda_db_table):
     Output('eda_table_sum', 'data'),
     Output('eda_table_sum', 'columns'),
     Output('eda_graph_container', 'children'),
+    Output('eda_table_sum_debug', 'children'),
+    Output('eda_selection_table_container', 'children'),
     Input('eda_time_range_slider', 'value'),
     Input('eda_display_mode', 'value'),
     Input('eda_steady_state_check', 'value'),
@@ -299,21 +360,23 @@ def update_eda_time_slider(eda_source_db, eda_db_table):
 
 )
 def update_eda_report(eda_time_range, _mode:str, _ss:str, eda_source_db, eda_db_table):
+    _ss = _ss[0] if len(_ss) == 1 else '!SS'
     _lst = [eda_time_range, _mode, _ss, eda_source_db, eda_db_table]
     #print(_lst)
     if any(_arg == None for _arg in _lst):
-        return None, None, None
+        return None, None, None, 'Something is missing', 'Something is missing'
     else:
         succeed = False
         try:
-            table_data, table_columns, fig = eda(db_name=eda_source_db, Table_name=eda_db_table, Time=eda_time_range, SS=_ss, mode=_mode)    
+            table_data, table_columns, fig, msg = eda(db_name=eda_source_db, Table_name=eda_db_table, Time=eda_time_range, SS=_ss, mode=_mode)    
             succeed = True
-        except mariadb.Error as e:
-            print(f"Error connecting to MariaDB Platform: {e}")
-            return None, None, None
+        except Exception as e:
+            return None, None, None, e, None
         finally:
             if succeed:
-                return table_data, table_columns, fig
+                cols = dash_table.DataTable(data=None, columns=[{"name": i, "id": i, "selectable": True} for i in utility.State_eda_df.columns], 
+                                            style_table={'overflowX': 'auto','minWidth': '100%',}, column_selectable="multi", selected_columns=[],)    
+                return table_data, table_columns, fig, msg, cols
 
 
 @app.callback(
@@ -334,5 +397,29 @@ def update_eda_table_styles(selected_columns, selected_rows):
     return selected_cols_conditions + selected_rows_conditions
 
 
+@app.callback(
+    Output('eda_comparison_graph_container', 'children'),
+    Output('eda_comparison_graph_debug', 'children'),
+    Input('comparison_graph_button', 'n_clicks_timestamp'),
+    State('eda_table_sum', 'selected_columns'),
+    State('eda_table_sum', 'selected_rows'),
+)
+def generate_compare_graph(n_clicks_timestamp, selected_columns, selected_rows):
+    fig = compared_eda(selected_rows=selected_rows, selected_columns=selected_columns)
+    return fig, f'selected_rows: {selected_rows}, selected_columns: {selected_columns}'
+
+'''
+@app.callback(
+    Output('eda_comparison_graph_container', 'children'),
+    Output('eda_comparison_graph_debug', 'children'),
+    Input('comparison_graph_button', 'n_clicks_timestamp'),
+    State('eda_table_sum', 'selected_columns'),
+    State('eda_table_sum', 'selected_rows'),
+)
+def generate_select_graph(n_clicks_timestamp, selected_columns, selected_rows):
+    fig = compared_eda(selected_rows=selected_rows, selected_columns=selected_columns)
+    return fig, f'selected_rows: {selected_rows}, selected_columns: {selected_columns}' 
+'''
+
 if __name__ == '__main__':
-    app.run_server(debug=True)
+    app.run_server(debug=True, threaded=True)
