@@ -2,3 +2,5 @@
 /__pycache__*
 /csv
 /*.log
+/ex.py
+/*.ipynb
