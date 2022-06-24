@@ -69,7 +69,7 @@ def db_table_to_df(db_name:str, Table_name: str):
 def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
     df = db_table_to_df(db_name=db_name, Table_name=Table_name)
     if df.empty:
-        return None, None, None, 'db is not loaded'
+        return None, [], [], 'db is not loaded'
     
     global State_eda_df
     State_eda_df = df
@@ -176,13 +176,33 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
         State_eda_df_sum = df_sum
         table_data = df_sum.to_dict('records')
         table_columns = [{"name": i, "id": i, "selectable": True} for i in df_sum.columns]
+        
+        get_values = lambda df, col : df.get(col) if _Steady_state else None
+        Steady_State_lst = get_values(df_sum, 'Steady State')
+        markdown = [
+                    dcc.Markdown(
+                        '''
+                        * Item 1
+                        * Item 2
+                        * Item 2a
+                        * Item 2b
+                        '''
+                    ),
+                    dcc.Markdown(
+                        f'''
+                        * state_{Steady_State_lst[0]}
+                        * state_{Steady_State_lst[1]}
+                        '''
+                    ),
+        ]
+
         if mode == 'Table':
-            return table_data, table_columns, None, f'Steady_State: {_Steady_state}'
+            return table_data, table_columns, [], f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown
     else:
         print('No Steady-State is found!')
         if mode == 'Table':
             table_columns = [{"name": i, "id": i, "selectable": True} for i in df.columns]
-            return None, table_columns, None, f'Steady_State: {_Steady_state}'
+            return None, table_columns, [], f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', []
 
 
     if mode == 'Visualization':
@@ -336,10 +356,11 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
             graph_lst.append(
                 dcc.Graph(id='fig_Thermo_Bar', figure=fig_Thermo_Bar) 
             )
-            return table_data, table_columns, graph_lst, f'Steady_State: {_Steady_state}'
+
+            return table_data, table_columns, graph_lst, f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown
         else:
             table_columns = [{"name": i, "id": i, "selectable": True} for i in df.columns]
-            return None, table_columns, graph_lst, f'Steady_State: {_Steady_state}'
+            return None, table_columns, graph_lst, f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown
     
         # set to global var
     get_values = lambda df, col : df.get(col) if _Steady_state else None
@@ -374,17 +395,26 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
 
 
 def compared_eda(selected_rows=[], selected_columns=[]):
-    global State_eda_df, State_eda_df_sum
+    global State_eda_df_sum
     _df = State_eda_df_sum.loc[selected_rows, selected_columns]
     #print(_df)
     if _df.empty:
-        return None
+        return []
     else:
-        selected_fig = px.bar(_df, x=_df.index, y=selected_columns, text='value', barmode='group')
-        return dcc.Graph(id='selected_fig', figure=selected_fig) 
+        compared_fig = px.bar(_df, x=_df.index, y=selected_columns, text='value', barmode='group')
+        return dcc.Graph(id='compared_fig', figure=compared_fig) 
     
     
-    
+def selected_eda(selected_columns=[]):
+    global State_eda_df
+    _df = State_eda_df[selected_columns]
+    #State_eda_df.loc[:, selected_columns]
+    print(_df)
+    if _df.empty:
+        return []
+    else:
+        compared_fig = px.line(_df)
+        return dcc.Graph(id='compared_fig', figure=compared_fig)
     
     
     

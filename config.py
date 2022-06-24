@@ -62,7 +62,7 @@ class Set_Point:
         
     def avg_calc(self, df:pd.core.frame.DataFrame, d:dict, db_name: str):
         _ss_time = self.ss_time
-        self.ss_avg = {'avg_H2_flow':[], 'ideal_H2_flow':[], 'AOG/Rcih':[], 'H2/MeOHWater_L/g':[], 'con_rate':[], 'heff':[], 'get':[], 'wasted':[], 'H2%':[], 'CO2%':[], 'CO%':[], 'H2O%':[], 'MeOH%':[], 'Products mole':[],}
+        self.ss_avg = {'avg_H2_flow':[], 'ideal_H2_flow':[], 'AOG/Rich':[], 'H2/MeOHWater_L/g':[], 'con_rate':[], 'heff':[], 'get':[], 'wasted':[], 'H2%':[], 'CO2%':[], 'CO%':[], 'H2O%':[], 'MeOH%':[], 'Products mole':[],}
         if _ss_time:
             _df_mean_ls = []
             for u in _ss_time:
@@ -127,7 +127,7 @@ class Set_Point:
                 
                 self.ss_avg['avg_H2_flow'].append(_ss_dict(span=_ss_time[i], avg_value=avg_H2_flow))
                 self.ss_avg['ideal_H2_flow'].append(_ss_dict(span=_ss_time[i], avg_value=ideal_H2_flow))
-                self.ss_avg['AOG/Rcih'].append(_ss_dict(span=_ss_time[i], avg_value=flow_ratio))
+                self.ss_avg['AOG/Rich'].append(_ss_dict(span=_ss_time[i], avg_value=flow_ratio))
                 self.ss_avg['H2/MeOHWater_L/g'].append(_ss_dict(span=_ss_time[i], avg_value=flow_ratio2))
                 self.ss_avg['con_rate'].append(_ss_dict(span=_ss_time[i], avg_value=con_rate))
                 self.ss_avg['heff'].append(_ss_dict(span=_ss_time[i], avg_value=heff))

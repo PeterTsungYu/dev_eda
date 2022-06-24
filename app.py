@@ -13,7 +13,7 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 # customized library
-from utility import db_conn, db_get_table_lst, eda, db_table_to_df, compared_eda
+from utility import db_conn, db_get_table_lst, eda, db_table_to_df, compared_eda, selected_eda
 import utility
 import config 
 
@@ -100,34 +100,6 @@ app.layout = html.Div([
             html.H3(children='Data Analysis', 
                     style={'color': colors['text'],}
             ),
-            html.Div(
-                [
-                dbc.RadioItems(
-                    id="eda_display_mode",
-                    className="btn-group",
-                    inputClassName="btn-check",
-                    labelClassName="btn btn-outline-primary",
-                    labelCheckedClassName="active",
-                    options=[
-                        {"label": "Table", "value": 'Table'},
-                        {"label": "Visualization", "value": 'Visualization'},
-                    ],
-                    value='Table',
-                ),
-                dcc.Checklist(
-                    id="eda_steady_state_check",
-                    options=[{'label': 'Steady-State Only', 'value': 'SS'},],
-                    value=['SS'],
-                    #inline=True,
-                    style={
-                        "margin-left":'2em',
-                        "verticalAlign":"middle"
-                    },
-                )
-                ],
-                style=dict(display='flex'),
-            ),
-            html.Br(),
             html.I(children='From Database:',
                     style={
                         'textAlign': 'left',
@@ -152,24 +124,54 @@ app.layout = html.Div([
                 html.Br(),
                 dbc.Card(
                     dbc.CardBody([
-                            html.H6("Time Range Slider [min]"),
-                            html.P(id='row_count', children='Duration: None'),
-                            dcc.RangeSlider(
-                            step=10,
-                            id='eda_time_range_slider',
-                            updatemode='mouseup',
-                            tooltip={"placement": "bottom", "always_visible": True},
-                            marks=None,
-                            pushable=1,
-                            allowCross=False,
+                            html.H6("Report Table and Graph"),
+                            html.Br(),
+                            html.Div(
+                                [
+                                dbc.RadioItems(
+                                    id="eda_display_mode",
+                                    className="btn-group",
+                                    inputClassName="btn-check",
+                                    labelClassName="btn btn-outline-primary",
+                                    labelCheckedClassName="active",
+                                    options=[
+                                        {"label": "Table", "value": 'Table'},
+                                        {"label": "Visualization", "value": 'Visualization'},
+                                    ],
+                                    value='Table',
+                                ),
+                                dcc.Checklist(
+                                    id="eda_steady_state_check",
+                                    options=[{'label': 'Steady-State Only', 'value': 'SS'},],
+                                    value=['SS'],
+                                    #inline=True,
+                                    style={
+                                        "margin-left":'2em',
+                                        "verticalAlign":"middle"
+                                    },
+                                )
+                                ],
+                                style=dict(display='flex'),
                             ),
-                        ]
-                    )
-                ),
-                dbc.Card(
-                    dbc.CardBody([
-                            html.H6("Summary Table"),
+                            dbc.Card(
+                                dbc.CardBody([
+                                        html.H6("Time Range Slider [min]"),
+                                        html.P(id='row_count', children='Duration: None'),
+                                        dcc.RangeSlider(
+                                        step=10,
+                                        id='eda_time_range_slider',
+                                        updatemode='mouseup',
+                                        tooltip={"placement": "bottom", "always_visible": True},
+                                        marks=None,
+                                        pushable=1,
+                                        allowCross=False,
+                                        ),
+                                    ]
+                                )
+                            ),
+                            html.Br(),
                             html.Div(id='eda_table_sum_debug'),
+                            dbc.Button('Generate Report', id='report_button', n_clicks=0),
                             dash_table.DataTable(
                                                 id='eda_table_sum', 
                                                 editable=False,
@@ -198,7 +200,9 @@ app.layout = html.Div([
                                                             },
                                                 export_format='xlsx',
                                                 export_headers='display',
-                                        )
+                            ),
+                            html.Div(id='eda_graph_container'),
+                            dcc.Store(id='eda_report_store'),
                         ]
                     )
                 ),
@@ -211,25 +215,31 @@ app.layout = html.Div([
                         html.Div(id='eda_comparison_graph_debug'),
                         dbc.Button('Generate Comparison Graph', id='comparison_graph_button', n_clicks=0),
                         html.Div(id='eda_comparison_graph_container'),
+                        dcc.Store(id='eda_comparison_table_store'),
                         ])
             ),
             dbc.Card(
                     dbc.CardBody([
                         html.H6("Selection Graph"),
                         html.Div(id='eda_selection_graph_debug'),
-                        html.Div(id='eda_selection_table_container'),
+                        dash_table.DataTable(id='selection_table', data=None, 
+                                            style_table={'overflowX': 'auto','minWidth': '100%',}, style_header={'backgroundColor': '#0074D9', 'color': 'white'},
+                                            style_cell={'textAlign': 'center', 'minWidth': '180px', 'maxWidth': '180px', 'width': '180px', 'whiteSpace': 'normal', 'height': '35px',},
+                                            column_selectable="multi", selected_columns=[],),    
                         dbc.Button('Generate Selection Graph', id='selection_graph_button', n_clicks=0),
                         html.Div(id='eda_selection_graph_container'),
-                        ])
-            ),
-            html.Br(),
-            dbc.Card(
-                    dbc.CardBody([
-                        html.H6("Summary Graph"),
-                        html.Div(id='eda_graph_container'),
-                        ])
+                        dcc.Store(id='eda_selection_table_store'),
+                        ]),
             ),
             html.Div(id="debug_output_1"),
+            dbc.Card(
+                    dbc.CardBody([
+                        html.H6("Summary"),
+                        html.Div(id='eda_summary_debug'),
+                        html.Div(id='eda_summary_container'),
+                        #dcc.Store(id='eda_comparison_table_store'),
+                        ])
+            ),
         ]),
     ],
     body=True,
@@ -320,10 +330,10 @@ def update_eda_table_dropdown(eda_source_db):
     Output('row_count', 'children'),
     Output('eda_time_range_slider', 'max'),
     Output('eda_time_range_slider', 'value'),
-    Input('eda_source_db', 'value'),
     Input('eda_db_table_dropdown', 'value'),
+    State('eda_source_db', 'value'),
 )
-def update_eda_time_slider(eda_source_db, eda_db_table):
+def update_eda_time_slider(eda_db_table, eda_source_db):
     _lst = [eda_source_db, eda_db_table]
     #print(_lst)
     if any(_arg == None for _arg in _lst):
@@ -347,36 +357,36 @@ def update_eda_time_slider(eda_source_db, eda_db_table):
 
 
 @app.callback(
+    Output('eda_report_store', 'data'),
     Output('eda_table_sum', 'data'),
     Output('eda_table_sum', 'columns'),
     Output('eda_graph_container', 'children'),
     Output('eda_table_sum_debug', 'children'),
-    Output('eda_selection_table_container', 'children'),
-    Input('eda_time_range_slider', 'value'),
-    Input('eda_display_mode', 'value'),
-    Input('eda_steady_state_check', 'value'),
-    Input('eda_source_db', 'value'),
+    Output('selection_table', 'columns'),
+    Output('eda_summary_container', 'children'),
+    Input('report_button', 'n_clicks_timestamp'),
     Input('eda_db_table_dropdown', 'value'),
+    State('eda_report_store', 'data'),
+    State('eda_time_range_slider', 'value'),
+    State('eda_display_mode', 'value'),
+    State('eda_steady_state_check', 'value'),
+    State('eda_source_db', 'value'),
 
 )
-def update_eda_report(eda_time_range, _mode:str, _ss:str, eda_source_db, eda_db_table):
+def update_eda_report(n_clicks_timestamp, db_table, pre_db_table, time_range, _mode:str, _ss:str, source_db,):
     _ss = _ss[0] if len(_ss) == 1 else '!SS'
-    _lst = [eda_time_range, _mode, _ss, eda_source_db, eda_db_table]
+    _lst = [time_range, _mode, _ss, source_db, db_table]
     #print(_lst)
+    debug_msg = f'table: {db_table}@{source_db}, time_range: {time_range}, mode: {_mode}, Steady_State_box: {_ss}, any_Steady_State: False'
     if any(_arg == None for _arg in _lst):
-        return None, None, None, 'Something is missing', 'Something is missing'
+        return None, None, [], [], debug_msg, [], []
+    
+    if db_table != pre_db_table:
+        return db_table, None, [], [], debug_msg, [], [] 
     else:
-        succeed = False
-        try:
-            table_data, table_columns, fig, msg = eda(db_name=eda_source_db, Table_name=eda_db_table, Time=eda_time_range, SS=_ss, mode=_mode)    
-            succeed = True
-        except Exception as e:
-            return None, None, None, e, None
-        finally:
-            if succeed:
-                cols = dash_table.DataTable(data=None, columns=[{"name": i, "id": i, "selectable": True} for i in utility.State_eda_df.columns], 
-                                            style_table={'overflowX': 'auto','minWidth': '100%',}, column_selectable="multi", selected_columns=[],)    
-                return table_data, table_columns, fig, msg, cols
+        table_data, table_columns, fig, debug_msg, markdown = eda(db_name=source_db, Table_name=db_table, Time=time_range, SS=_ss, mode=_mode)    
+        cols = [{"name": i, "id": i, "selectable": True} for i in utility.State_eda_df.columns]
+        return db_table, table_data, table_columns, fig, debug_msg, cols, markdown
 
 
 @app.callback(
@@ -398,28 +408,48 @@ def update_eda_table_styles(selected_columns, selected_rows):
 
 
 @app.callback(
+    Output('eda_comparison_table_store', 'data'),
     Output('eda_comparison_graph_container', 'children'),
     Output('eda_comparison_graph_debug', 'children'),
     Input('comparison_graph_button', 'n_clicks_timestamp'),
+    Input('eda_db_table_dropdown', 'value'),
+    State('eda_comparison_table_store', 'data'),
+    State('eda_source_db', 'value'),
     State('eda_table_sum', 'selected_columns'),
     State('eda_table_sum', 'selected_rows'),
 )
-def generate_compare_graph(n_clicks_timestamp, selected_columns, selected_rows):
-    fig = compared_eda(selected_rows=selected_rows, selected_columns=selected_columns)
-    return fig, f'selected_rows: {selected_rows}, selected_columns: {selected_columns}'
+def generate_compare_graph(n_clicks_timestamp, db_table, pre_db_table, source_db, selected_columns, selected_rows):
+    print('generate_compare_graph')
+    print(pre_db_table)
+    print(db_table)
+    if db_table != pre_db_table:
+        return db_table, [], f'table: {db_table}@{source_db}, selected_columns: {selected_columns}'
+    else:    
+        fig = compared_eda(selected_rows=selected_rows, selected_columns=selected_columns)
+        return db_table, fig, f'table: {db_table}@{source_db}, selected_rows: {selected_rows}, selected_columns: {selected_columns}'
 
-'''
+
 @app.callback(
-    Output('eda_comparison_graph_container', 'children'),
-    Output('eda_comparison_graph_debug', 'children'),
-    Input('comparison_graph_button', 'n_clicks_timestamp'),
-    State('eda_table_sum', 'selected_columns'),
-    State('eda_table_sum', 'selected_rows'),
+    Output('eda_selection_table_store', 'data'),
+    Output('eda_selection_graph_container', 'children'),
+    Output('eda_selection_graph_debug', 'children'),
+    Input('selection_graph_button', 'n_clicks_timestamp'),
+    Input('eda_db_table_dropdown', 'value'),
+    State('eda_selection_table_store', 'data'),
+    State('eda_source_db', 'value'),
+    State('selection_table', 'selected_columns'),
 )
-def generate_select_graph(n_clicks_timestamp, selected_columns, selected_rows):
-    fig = compared_eda(selected_rows=selected_rows, selected_columns=selected_columns)
-    return fig, f'selected_rows: {selected_rows}, selected_columns: {selected_columns}' 
-'''
+def generate_select_graph(n_clicks_timestamp, db_table, pre_db_table, source_db, selected_columns):
+    print('generate_select_graph')
+    print(pre_db_table)
+    print(db_table)
+
+    if db_table != pre_db_table:
+        return db_table, [], f'table: {db_table}@{source_db}, selected_columns: {selected_columns}' 
+    else:
+        fig = selected_eda(selected_columns=selected_columns)
+        return db_table, fig, f'table: {db_table}@{source_db}, selected_columns: {selected_columns}' 
+
 
 if __name__ == '__main__':
     app.run_server(debug=True, threaded=True)
