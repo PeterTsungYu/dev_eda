@@ -177,24 +177,10 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
         table_data = df_sum.to_dict('records')
         table_columns = [{"name": i, "id": i, "selectable": True} for i in df_sum.columns]
         
-        get_values = lambda df, col : df.get(col) if _Steady_state else None
-        Steady_State_lst = get_values(df_sum, 'Steady State')
-        markdown = [
-                    dcc.Markdown(
-                        '''
-                        * Item 1
-                        * Item 2
-                        * Item 2a
-                        * Item 2b
-                        '''
-                    ),
-                    dcc.Markdown(
-                        f'''
-                        * state_{Steady_State_lst[0]}
-                        * state_{Steady_State_lst[1]}
-                        '''
-                    ),
-        ]
+        try:
+            markdown = sum_markdown()
+        except Exception as e:
+            markdown = [e]
 
         if mode == 'Table':
             return table_data, table_columns, [], f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown
@@ -362,7 +348,34 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
             table_columns = [{"name": i, "id": i, "selectable": True} for i in df.columns]
             return None, table_columns, graph_lst, f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown
     
-        # set to global var
+
+def compared_eda(selected_rows=[], selected_columns=[]):
+    global State_eda_df_sum
+    _df = State_eda_df_sum.loc[selected_rows, selected_columns]
+    #print(_df)
+    if _df.empty:
+        return []
+    else:
+        compared_fig = px.bar(_df, x=_df.index, y=selected_columns, text='value', barmode='group')
+        return dcc.Graph(id='compared_fig', figure=compared_fig) 
+    
+    
+def selected_eda(selected_columns=[]):
+    global State_eda_df
+    _df = State_eda_df[selected_columns]
+    #State_eda_df.loc[:, selected_columns]
+    print(_df)
+    if _df.empty:
+        return []
+    else:
+        compared_fig = px.line(_df)
+        return dcc.Graph(id='compared_fig', figure=compared_fig)
+    
+
+def sum_markdown():
+    global State_eda_df_sum
+    df_sum = State_eda_df_sum
+
     get_values = lambda df, col : df.get(col) if _Steady_state else None
     Steady_State_lst = get_values(df_sum, 'Steady State')
     avg_H2_flow_lst = get_values(df_sum, 'avg_H2_flow')
@@ -393,28 +406,21 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
     avg_Exhaust_gas_lst = get_values(df_sum, 'avg_Exhaust_gas')
     avg_PCB_SET_PV_lst = get_values(df_sum, 'avg_PCB_SET_PV')
 
-
-def compared_eda(selected_rows=[], selected_columns=[]):
-    global State_eda_df_sum
-    _df = State_eda_df_sum.loc[selected_rows, selected_columns]
-    #print(_df)
-    if _df.empty:
-        return []
-    else:
-        compared_fig = px.bar(_df, x=_df.index, y=selected_columns, text='value', barmode='group')
-        return dcc.Graph(id='compared_fig', figure=compared_fig) 
+    markdown = [
+                dcc.Markdown(
+                    '''
+                    * Item 1
+                    * Item 2
+                    * Item 2a
+                    * Item 2b
+                    '''
+                ),
+                dcc.Markdown(
+                    f'''
+                    * state_{Steady_State_lst[0]}
+                    * state_{Steady_State_lst[1]}
+                    '''
+                ),
+    ]
     
-    
-def selected_eda(selected_columns=[]):
-    global State_eda_df
-    _df = State_eda_df[selected_columns]
-    #State_eda_df.loc[:, selected_columns]
-    print(_df)
-    if _df.empty:
-        return []
-    else:
-        compared_fig = px.line(_df)
-        return dcc.Graph(id='compared_fig', figure=compared_fig)
-    
-    
-    
+    return markdown
