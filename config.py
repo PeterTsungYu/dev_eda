@@ -77,27 +77,37 @@ class Set_Point:
             
             for i in range(len(_ss_time)):
                 A = self.ss_avg.get('avg_DFM_RichGas_1min')[i].avg_value * self.ss_avg.get('avg_GA_H2')[i].avg_value / 100 * 1000 / (6.959 / 22.386 * 24.47) / 120
-                if db_name == 'Reformer_BW':
-                    BR_get_heat = thermo.combustion('MeOH', self.ss_avg.get('avg_Pump_SET_SV')[i].avg_value, self.ss_avg.get('avg_Air_MFC_SET_SV')[i].avg_value, self.ss_avg.get('avg_Header_BR_PV')[i].avg_value)
-                    gas_comp = {
-                        'H2': self.ss_avg.get('avg_GA_H2')[i].avg_value,
-                        'CO2': self.ss_avg.get('avg_GA_CO2')[i].avg_value,
-                        'CO': self.ss_avg.get('avg_GA_CO')[i].avg_value
-                    }
-                    Reaction_need_heat = thermo.reformer_heat(self.ss_avg.get('avg_Steam_Out')[i].avg_value, self.ss_avg.get('avg_TC10')[i].avg_value, self.ss_avg.get('avg_Scale')[i].avg_value, self.ss_avg.get('avg_DFM_RichGas_1min')[i].avg_value, gas_comp)
-                   
-                elif db_name == 'Reformer_SE':
-                    DFM_total = self.ss_avg.get('avg_DFM_RichGas_1min')[i].avg_value + self.ss_avg.get('avg_DFM_AOG_1min')[i].avg_value
-                    flow_ratio = self.ss_avg.get('avg_DFM_AOG_1min')[i].avg_value / self.ss_avg.get('avg_DFM_RichGas_1min')[i].avg_value
-                    flow_ratio2 = DFM_total / self.ss_avg.get('avg_Scale')[i].avg_value
-                    avg_H2_flow = DFM_total * self.ss_avg.get('avg_GA_H2')[i].avg_value / 100 - self.dummy # LPM
-                    ideal_H2_flow = self.ss_avg.get('avg_Scale')[i].avg_value / self.MeOH_mw * self.MeOH_weight* self.decomp * (2 + self.WGS_conver) * self.Ideal_gas_constant['R'] * (self.ss_avg.get('avg_RAD_Out')[i].avg_value + 273) / (self.ss_avg.get('avg_ADAM_P_Out')[i].avg_value / 1.01325 + 1)
-                    con_rate = avg_H2_flow / ideal_H2_flow * 100
-                    gas_comp = {
+                DFM_total = self.ss_avg.get('avg_DFM_RichGas_1min')[i].avg_value + self.ss_avg.get('avg_DFM_AOG_1min')[i].avg_value
+                flow_ratio = self.ss_avg.get('avg_DFM_AOG_1min')[i].avg_value / self.ss_avg.get('avg_DFM_RichGas_1min')[i].avg_value
+                flow_ratio2 = DFM_total / self.ss_avg.get('avg_Scale')[i].avg_value
+                avg_H2_flow = DFM_total * self.ss_avg.get('avg_GA_H2')[i].avg_value / 100 - self.dummy # LPM
+                ideal_H2_flow = self.ss_avg.get('avg_Scale')[i].avg_value / self.MeOH_mw * self.MeOH_weight* self.decomp * (2 + self.WGS_conver) * self.Ideal_gas_constant['R'] * (self.ss_avg.get('avg_RAD_Out')[i].avg_value + 273) / (self.ss_avg.get('avg_ADAM_P_Out')[i].avg_value / 1.01325 + 1)
+                con_rate = avg_H2_flow / ideal_H2_flow * 100
+                gas_comp = {
                             'H2': self.ss_avg.get('avg_GA_H2')[i].avg_value,
                             'CO2': self.ss_avg.get('avg_GA_CO2')[i].avg_value,
                             'CO': self.ss_avg.get('avg_GA_CO')[i].avg_value
                         }
+                if db_name == 'Reformer_BW':
+                    combustion_heat = {
+                        'fuel type': 'MeOH',
+                        'fuel flow': self.ss_avg.get('avg_DFM_AOG_1min')[i].avg_value,
+                        'air flow': self.ss_avg.get('avg_Air_MFC_SET_SV')[i].avg_value,
+                        'air T': 25,
+                        'burner out T': self.ss_avg.get('avg_Steam_Out')[i].avg_value,
+                        'gas composition': gas_comp,
+                    }
+                    reformer_heat = {
+                        'reactants T': self.ss_avg.get('avg_EVA_Out')[i].avg_value,
+                        'products T': self.ss_avg.get('avg_TC10')[i].avg_value,
+                        'reactants flow': self.ss_avg.get('avg_Scale')[i].avg_value,
+                        'products flow': DFM_total,
+                        'gas composition': gas_comp,
+                        'convertion': con_rate,
+                        'pressure': 0,
+                        'RAD T': self.ss_avg.get('avg_RAD_Out')[i].avg_value,
+                    }                
+                elif db_name == 'Reformer_SE':
                     combustion_heat = {
                         'fuel type': 'AOG',
                         'fuel flow': self.ss_avg.get('avg_DFM_AOG_1min')[i].avg_value,
@@ -116,11 +126,11 @@ class Set_Point:
                         'pressure': self.ss_avg.get('avg_ADAM_P_Out')[i].avg_value,
                         'RAD T': self.ss_avg.get('avg_RAD_Out')[i].avg_value,
                     }
-                    Cb = thermo_ver_2.CombustionCalc(combustion_heat, self.Ideal_gas_constant)
-                    Re = thermo_ver_2.ReformerReactionCalc(reformer_heat, self.Ideal_gas_constant)
-                    Thermo = thermo_ver_2.ThermodynamicsCalculation(combustion_heat, reformer_heat, self.Ideal_gas_constant).heff
-                    Volume_P = thermo_ver_2.ThermodynamicsCalculation(combustion_heat, reformer_heat, self.Ideal_gas_constant).percentage()[0]
-                    Total = sum(thermo_ver_2.ThermodynamicsCalculation(combustion_heat, reformer_heat, self.Ideal_gas_constant).productsunit())
+                Cb = thermo_ver_2.CombustionCalc(combustion_heat, self.Ideal_gas_constant)
+                Re = thermo_ver_2.ReformerReactionCalc(reformer_heat, self.Ideal_gas_constant)
+                Thermo = thermo_ver_2.ThermodynamicsCalculation(combustion_heat, reformer_heat, self.Ideal_gas_constant).heff
+                Volume_P = thermo_ver_2.ThermodynamicsCalculation(combustion_heat, reformer_heat, self.Ideal_gas_constant).percentage()[0]
+                Total = sum(thermo_ver_2.ThermodynamicsCalculation(combustion_heat, reformer_heat, self.Ideal_gas_constant).productsunit())
                 heff = Thermo()[4]
                 get = Thermo()[0] / Thermo()[1] * 100
                 wasted = Thermo()[2] / Thermo()[1] * 100
@@ -163,14 +173,14 @@ class Set_Point:
             pass
 
 
-SE_Set_Point_lst = [Set_Point(name= '18A', temp=300,weight_rate=18, dummy=0), 
+SE_Set_Point_lst = [Set_Point(name= '18A', temp=300, weight_rate=18, dummy=0), 
                  Set_Point(name= '34A', temp=305, weight_rate=34, dummy=0), 
                  Set_Point(name= '51A', temp=315, weight_rate=51, dummy=0), 
                  Set_Point(name= '68A', temp=325, weight_rate=68, dummy=0), 
                  Set_Point(name= '85A', temp=332, weight_rate=85, dummy=0)]
 
-BW_Set_Point_lst = [Set_Point(name= '20%', temp=270, weight_rate=24.08, dummy=0), 
-                 Set_Point(name= '40%', temp=280, weight_rate=48.16, dummy=0), 
-                 Set_Point(name= '60%', temp=260, weight_rate=72.23, dummy=0), 
-                 Set_Point(name= '80%', temp=260, weight_rate=96.31, dummy=0), 
-                 Set_Point(name= '100%', temp=260, weight_rate=120.39, dummy=0)]
+BW_Set_Point_lst = [Set_Point(name= '20%', temp=270, weight_rate=44, dummy=0), 
+                 Set_Point(name= '40%', temp=280, weight_rate=88, dummy=0), 
+                 Set_Point(name= '60%', temp=260, weight_rate=132, dummy=0), 
+                 Set_Point(name= '80%', temp=260, weight_rate=176, dummy=0), 
+                 Set_Point(name= '100%', temp=260, weight_rate=220, dummy=0)]

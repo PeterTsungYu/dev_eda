@@ -102,16 +102,22 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
 #                    'avg_DFM_AOG':'DFM_AOG',
                 'avg_DFM_AOG_1min':'DFM_AOG_1min',
                 'avg_current':'current',
-                'avg_GA_H2':'GA_H2',
-                'avg_GA_CO2':'GA_CO2',
-                'avg_GA_CO':'GA_CO',
-                'avg_GA_N2':'GA_N2',
-                'avg_GA_CH4':'GA_CH4',
+                # 'avg_GA_H2':'GA_H2',
+                # 'avg_GA_CO2':'GA_CO2',
+                # 'avg_GA_CO':'GA_CO',
+                # 'avg_GA_N2':'GA_N2',
+                # 'avg_GA_CH4':'GA_CH4',
+                'avg_H2':'H2',
+                'avg_CO2':'CO2',
+                'avg_CO':'CO',
+                'avg_MeOH':'MeOH',
+                'avg_H2O':'H2O',
                 'avg_ADAM_P_Out':'ADAM_P_Out',
                 'avg_ADAM_P_MeMix':'ADAM_P_MeMix',
                 'avg_Header_BR_PV':'Header_BR_PV',
                 'avg_Header_EVA_PV':'Header_EVA_PV',
                 'avg_PCB_SET_PV':'PCB_SET_PV'
+                # 'avg_Convertion':'Convertion',
         }
     elif db_name == 'Reformer_BW':
         Set_Point_lst = config.BW_Set_Point_lst
@@ -125,15 +131,25 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
                 'avg_Header_BR_PV':'Header_BR_PV',
                 'avg_RAD_out':'RAD_out',
                 'avg_Scale':'Scale', 
-                'avg_DFM_RichGas':'DFM_RichGas', 
-                'avg_DFM_AOG':'DFM_AOG',
-                'avg_GA_H2':'GA_H2',
-                'avg_GA_CO2':'GA_CO2',
-                'avg_GA_CO':'GA_CO',
+                # 'avg_DFM_RichGas':'DFM_RichGas', 
+                'avg_DFM_RichGas_1min':'DFM_RichGas_1min',
+                # 'avg_DFM_AOG':'DFM_AOG',
+                'avg_DFM_AOG_1min':'DFM_AOG_1min',
+                # 'avg_GA_H2':'GA_H2',
+                'avg_H2':'H2',
+                # 'avg_GA_CO2':'GA_CO2',
+                'avg_CO2':'CO2',
+                # 'avg_GA_CO':'GA_CO',
+                'avg_CO':'CO',
+                'avg_MeOH':'MeOH',
+                'avg_H2O':'H2O',
                 'avg_Air_MFC_SET_SV':'Air_MFC_SET_SV',
                 'avg_H2_MFC_SET_SV':'H2_MFC_SET_SV',
                 'avg_Pump_SET_SV':'Pump_SET_SV',
-                'avg_Lambda':'Lambda'
+                'avg_Lambda':'Lambda',
+                'avg_current':'current',
+                # 'avg_Convertion':'Convertion',
+                'avg_Ratio':'Ratio'
                 }
     else:
         pass
@@ -179,16 +195,24 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
         
         try:
             markdown = sum_markdown()
-        except Exception as e:
-            markdown = [e]
+            # markdown = []
+        except BaseException as e:
+            # markdown = [e]
+            markdown = [f'ERROR: {e}']
 
         if mode == 'Table':
             return table_data, table_columns, [], f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown
     else:
+        try:
+            markdown = sum_markdown()
+            # markdown = []
+        except BaseException as e:
+            # markdown = [e]
+            markdown = [f'ERROR: {e}']
         print('No Steady-State is found!')
         if mode == 'Table':
             table_columns = [{"name": i, "id": i, "selectable": True} for i in df.columns]
-            return None, table_columns, [], f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', []
+            return None, table_columns, [], f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown
 
 
     if mode == 'Visualization':
@@ -274,6 +298,9 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
         fig_H2_Curve.add_trace(
             go.Scatter(x=x_axis, y=df['DFM_RichGas_1min'], name='DFM_RichGas_1min', mode='lines', stackgroup='one'),
         )
+        fig_H2_Curve.add_trace(
+            go.Scatter(x=x_axis, y=df['Ratio'], name='Ratio', mode='lines', stackgroup='one'),
+        )
         fig_H2_Curve.update_layout(
             title='H2 Curve',
             xaxis = dict(title='Time [min]', tickmode = 'linear', tick0 = 0, dtick = 10),
@@ -290,23 +317,19 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
             dcc.Graph(id='fig_Gas_Curve', figure=fig_Gas_Curve)
         )
         fig_Gas_Curve.add_trace(
-                go.Scatter(x=x_axis, y=df['GA_CO'], name='GA_CO_line (Right)', mode='lines'),
-                secondary_y=True
-            )
-        fig_Gas_Curve.add_trace(
-            go.Scatter(x=x_axis, y=df['GA_H2'], name='GA_H2', mode='lines', stackgroup='one'),
+            go.Scatter(x=x_axis, y=df['H2'], name='H2', mode='lines', stackgroup='one'),
         )
         fig_Gas_Curve.add_trace(
-            go.Scatter(x=x_axis, y=df['GA_CO'], name='GA_CO', mode='lines', stackgroup='one'),
+            go.Scatter(x=x_axis, y=df['CO'], name='CO', mode='lines', stackgroup='one'),
         )
         fig_Gas_Curve.add_trace(
-            go.Scatter(x=x_axis, y=df['GA_CO2'], name='GA_CO2', mode='lines', stackgroup='one'),
+            go.Scatter(x=x_axis, y=df['CO2'], name='CO2', mode='lines', stackgroup='one'),
         )
         fig_Gas_Curve.add_trace(
-            go.Scatter(x=x_axis, y=df['GA_CH4'], name='GA_CH4', mode='lines', stackgroup='one'),
+            go.Scatter(x=x_axis, y=df['MeOH'], name='MeOH', mode='lines', stackgroup='one'),
         )
         fig_Gas_Curve.add_trace(
-            go.Scatter(x=x_axis, y=df['GA_N2'], name='GA_N2', mode='lines', stackgroup='one'),
+            go.Scatter(x=x_axis, y=df['H2O'], name='H2O', mode='lines', stackgroup='one'),
         )
         fig_Gas_Curve.update_layout(
             title='Gas Curve',
@@ -415,12 +438,16 @@ def sum_markdown():
                     * Item 2b
                     '''
                 ),
+                '''
                 dcc.Markdown(
                     f'''
-                    * state_{Steady_State_lst[0]}
-                    * state_{Steady_State_lst[1]}
+                    #*state_{Steady_State_lst[i] == '18A'}
+                    #*state_{Steady_State_lst[1] == '34A'}
+                    #*state_{Steady_State_lst[1] == '51A'}
+                    #*state_{Steady_State_lst[1] == '68A'}
+                    #*state_{Steady_State_lst[1] == '85A'}
                     '''
                 ),
+                '''
     ]
-    
     return markdown
