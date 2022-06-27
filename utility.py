@@ -212,7 +212,7 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
         print('No Steady-State is found!')
         if mode == 'Table':
             table_columns = [{"name": i, "id": i, "selectable": True} for i in df.columns]
-            return None, table_columns, [], f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown
+            return None, table_columns, [], f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', []
 
 
     if mode == 'Visualization':
