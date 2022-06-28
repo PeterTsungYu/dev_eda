@@ -132,8 +132,8 @@ class Set_Point:
                 Volume_P = thermo_ver_2.ThermodynamicsCalculation(combustion_heat, reformer_heat, self.Ideal_gas_constant).percentage()[0]
                 Total = sum(thermo_ver_2.ThermodynamicsCalculation(combustion_heat, reformer_heat, self.Ideal_gas_constant).productsunit())
                 heff = Thermo()[4]
-                get = Thermo()[0] / Thermo()[1] * 100
-                wasted = Thermo()[2] / Thermo()[1] * 100
+                get = Thermo()[0]
+                wasted = Thermo()[2]
                 
                 self.ss_avg['avg_H2_flow'].append(_ss_dict(span=_ss_time[i], avg_value=avg_H2_flow))
                 self.ss_avg['ideal_H2_flow'].append(_ss_dict(span=_ss_time[i], avg_value=ideal_H2_flow))

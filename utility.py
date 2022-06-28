@@ -79,6 +79,8 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
     _heff = 0
     _get = 0
     _wasted = 0
+    _ratio = 0
+    _lg = 0
     
     if db_name == 'Reformer_SE':
         Set_Point_lst = config.SE_Set_Point_lst
@@ -116,8 +118,9 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
                 'avg_ADAM_P_MeMix':'ADAM_P_MeMix',
                 'avg_Header_BR_PV':'Header_BR_PV',
                 'avg_Header_EVA_PV':'Header_EVA_PV',
-                'avg_PCB_SET_PV':'PCB_SET_PV'
+                'avg_PCB_SET_PV':'PCB_SET_PV',
                 # 'avg_Convertion':'Convertion',
+                'avg_Ratio':'Ratio',
         }
     elif db_name == 'Reformer_BW':
         Set_Point_lst = config.BW_Set_Point_lst
@@ -178,6 +181,14 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
                 w.gen_series(leng=_leng)
                 _wasted = _wasted + w.series
 #                     print(_wasted)
+            for r in i.ss_avg['AOG/Rich']:
+                r.gen_series(leng=_leng)
+                _ratio = _ratio + r.series
+#                     print(_ratio)
+            for l in i.ss_avg['H2/MeOHWater_L/g']:
+                l.gen_series(leng=_leng)
+                _lg = _lg + l.series
+#                     print(_lg)
     
     df_sum = pd.DataFrame()
     _Steady_state = False
@@ -340,7 +351,6 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
         )
         fig_Gas_Curve.for_each_xaxis(lambda x: x.update(showgrid=False))
         fig_Gas_Curve.for_each_yaxis(lambda x: x.update(showgrid=False))
-
         if _Steady_state:
             #print(table_data, table_columns, graph_lst)
             df_con_rate = df_sum[['Steady State', 'con_rate']].reset_index()
@@ -358,12 +368,26 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
             graph_lst.append(
                 dcc.Graph(id='fig_Rate_Bar', figure=fig_Rate_Bar) 
             )
-            
             df_thermo = df_sum[['Steady State', 'get', 'wasted']].reset_index()
             df_thermo.columns = ['order', 'Steady State', 'get', 'wasted']
             fig_Thermo_Bar = px.bar(df_thermo, x='order', y=["wasted", "get"], labels={"value": "heat [kW]"}, title="Thermodynamics Calc Bar", text='value')
             graph_lst.append(
                 dcc.Graph(id='fig_Thermo_Bar', figure=fig_Thermo_Bar) 
+            )
+            df_ratio = df_sum[['Steady State', 'AOG/Rich']].reset_index()
+            df_ratio.columns = ['order', 'Steady State', 'value']
+            df_ratio['order'] = [f'Order_{i+1}' for i in df_AOG/Rich['order']]
+            df_ratio['type'] = 'Ratio'
+            df_ratio2 = df_sum[['Steady State', 'H2/MeOHWater_L/g']].reset_index()
+            df_ratio2.columns = ['order', 'Steady State', 'value']
+            df_ratio2['order'] = [f'Order_{i+1}' for i in df_H2/MeOHWater_L/g['order']]
+            df_ratio2['type'] = 'Ratio'
+            df_cluster2 = pd.concat([df_AOG/Rich, df_H2/MeOHWater_L/g], sort=False)
+
+            fig_Ratio_Bar = px.bar(df_cluster2, title='Different Rate Cluster Bar', x="type", y="value",
+                        color='order', barmode='group', text='Steady State', labels={"value": "Ratio", "type": "Rate Category"})
+            graph_lst.append(
+                dcc.Graph(id='fig_Ratio_Bar', figure=fig_Ratio_Bar) 
             )
 
             return table_data, table_columns, graph_lst, f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown
@@ -441,9 +465,9 @@ def sum_markdown():
                 '''
                 dcc.Markdown(
                     f'''
-                    #*state_{Steady_State_lst[i] == '18A'}
-                    #*state_{Steady_State_lst[1] == '34A'}
-                    #*state_{Steady_State_lst[1] == '51A'}
+                    # *state_{Steady_State_lst[i] == '18A'}
+                    # *state_{Steady_State_lst[1] == '34A'}
+                    # *state_{Steady_State_lst[1] == '51A'}
                     #*state_{Steady_State_lst[1] == '68A'}
                     #*state_{Steady_State_lst[1] == '85A'}
                     '''
