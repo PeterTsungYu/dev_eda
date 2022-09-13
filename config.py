@@ -25,7 +25,7 @@ class Set_Point:
     WGS_conver = 0.97 # WGS convertion
     Ideal_gas_constant = {'R': 0.082, 'P': 1, 'T': 298}
     cont_step = 60 #continue for 1 min
-    TC_range = 5 #5+-oC
+    TC_range = 6 #5+-oC
     Scale_range = 5 #5+-g/min
     continuity = 5 #5min
     def __init__(self, name: str, temp: float, weight_rate: float, dummy: float):
@@ -40,8 +40,14 @@ class Set_Point:
         count_60 = 0 #counter for steady mins
         ss_temp = []
         ss_lst = []
-        ss = ((df[TC] >= (self.temp - self.TC_range)) & (df[TC] <= (self.temp + self.TC_range))) \
-        & ((df['current'] >= (self.weight_rate - self.Scale_range)) & (df['current'] <= (self.weight_rate + self.Scale_range)))
+        ss_exist = df.to_dict('series')
+        if 'current' in ss_exist:
+            ss = ((df[TC] >= (self.temp - self.TC_range)) & (df[TC] <= (self.temp + self.TC_range))) \
+            & ((df['current'] >= (self.weight_rate - self.Scale_range)) & (df['current'] <= (self.weight_rate + self.Scale_range)))
+        else:
+            df['current'] = 0
+            # df['H2'] = 0
+            ss = []
         #print(ss.sum())
         for i in range(0, len(ss), self.cont_step):
             if i + self.cont_step <= len(ss):
@@ -62,7 +68,20 @@ class Set_Point:
         
     def avg_calc(self, df:pd.core.frame.DataFrame, d:dict, db_name: str):
         _ss_time = self.ss_time
-        self.ss_avg = {'avg_H2_flow':[], 'ideal_H2_flow':[], 'AOG/Rich':[], 'H2/MeOHWater_L/g':[], 'con_rate':[], 'heff':[], 'get':[], 'wasted':[], 'H2%':[], 'CO2%':[], 'CO%':[], 'H2O%':[], 'MeOH%':[], 'Products mole':[],}
+        self.ss_avg = {'avg_H2_flow':[], 
+                        'ideal_H2_flow':[], 
+                        'AOG/Rich':[], 
+                        'H2/MeOHWater_L/g':[], 
+                        'con_rate':[], 
+                        'heff':[], 
+                        'get':[], 
+                        'wasted':[], 
+                        'H2%':[], 
+                        'CO2%':[], 
+                        'CO%':[], 
+                        'H2O%':[], 
+                        'MeOH%':[], 
+                        'Products mole':[],}
         if _ss_time:
             _df_mean_ls = []
             for u in _ss_time:
@@ -72,9 +91,9 @@ class Set_Point:
             for k, v in d.items():
                 self.ss_avg[k] = []
                 for i in range(len(_ss_time)):
-                    _avg = _df_mean_ls[i][v].mean()
-                    self.ss_avg[k].append(_ss_dict(span=_ss_time[i], avg_value=_avg))
-            
+                        _avg = _df_mean_ls[i][v].mean()
+                        self.ss_avg[k].append(_ss_dict(span=_ss_time[i], avg_value=_avg))
+
             for i in range(len(_ss_time)):
                 A = self.ss_avg.get('avg_DFM_RichGas_1min')[i].avg_value * self.ss_avg.get('avg_GA_H2')[i].avg_value / 100 * 1000 / (6.959 / 22.386 * 24.47) / 120
                 DFM_total = self.ss_avg.get('avg_DFM_RichGas_1min')[i].avg_value + self.ss_avg.get('avg_DFM_AOG_1min')[i].avg_value
@@ -103,7 +122,7 @@ class Set_Point:
                         'reactants flow': self.ss_avg.get('avg_Scale')[i].avg_value,
                         'products flow': DFM_total,
                         'gas composition': gas_comp,
-                        'convertion': con_rate,
+                        'convertion': self.ss_avg.get('avg_Convertion')[i].avg_value,
                         'pressure': 0,
                         'RAD T': self.ss_avg.get('avg_RAD_Out')[i].avg_value,
                     }                
@@ -122,7 +141,7 @@ class Set_Point:
                         'reactants flow': self.ss_avg.get('avg_Scale')[i].avg_value,
                         'products flow': DFM_total,
                         'gas composition': gas_comp,
-                        'convertion': con_rate,
+                        'convertion': self.ss_avg.get('avg_Convertion')[i].avg_value,
                         'pressure': self.ss_avg.get('avg_ADAM_P_Out')[i].avg_value,
                         'RAD T': self.ss_avg.get('avg_RAD_Out')[i].avg_value,
                     }

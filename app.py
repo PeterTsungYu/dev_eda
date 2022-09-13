@@ -13,7 +13,7 @@ from plotly.subplots import make_subplots
 import plotly.graph_objects as go
 
 # customized library
-from utility import db_conn, db_get_table_lst, eda, db_table_to_df, compared_eda, selected_eda
+from utility import db_conn, db_get_table_lst, eda, db_table_to_df, compared_eda, selected_eda, animation_eda
 import utility
 import config 
 
@@ -28,7 +28,6 @@ colors = {
     'background': '#111111',
     'text': '#7FDBFF'
 }
-
 app.layout = html.Div([
     html.H1(children='Hi Platformer', 
             style={
@@ -46,15 +45,16 @@ app.layout = html.Div([
                         'textAlign': 'left',
                         'color': colors['text'],
                     }),
-            dcc.RadioItems(
-                ['reformer',],
-                'reformer',
-                id='source_db',
-                inline=True
-            ),
-            html.Br(),
             dcc.Dropdown(
-                options=db_get_table_lst('reformer'),
+                    ['reformer', 'Reformer_BW', 'Reformer_BW_Alert', 'Reformer_SE', 'Reformer_SE_Alert', 'Prototype_15kW', 'Prototype_15kW_Alert'],
+                    'reformer',
+                    placeholder='Select A Database...',
+                    id='source_db',
+                    style={"width": "50%"},
+                    persistence=True,
+                ),
+            dcc.Dropdown(
+                options=[],
                 placeholder='Select A Source Table...',
                 id='db_table_dropdown',
                 style={"width": "50%"},
@@ -231,6 +231,19 @@ app.layout = html.Div([
                         dcc.Store(id='eda_selection_table_store'),
                         ]),
             ),
+            dbc.Card(
+                    dbc.CardBody([
+                        html.H6("Animation Graph"),
+                        html.Div(id='eda_animation_graph_debug'),
+                        dash_table.DataTable(id='animation_table', data=None, 
+                                            style_table={'overflowX': 'auto','minWidth': '100%',}, style_header={'backgroundColor': '#0074D9', 'color': 'white'},
+                                            style_cell={'textAlign': 'center', 'minWidth': '180px', 'maxWidth': '180px', 'width': '180px', 'whiteSpace': 'normal', 'height': '35px',},
+                                            column_selectable="multi", selected_columns=[],),    
+                        dbc.Button('Generate Animation Graph', id='animation_graph_button', n_clicks=0),
+                        html.Div(id='eda_animation_graph_container'),
+                        dcc.Store(id='eda_animation_table_store'),
+                        ]),
+            ),
             html.Div(id="debug_output_1"),
             dbc.Card(
                     dbc.CardBody([
@@ -319,6 +332,14 @@ def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination
 
 
 @app.callback(
+    Output('db_table_dropdown', 'options'),
+    Input('source_db', 'value')
+)
+def update_table_dropdown(source_db):
+    return db_get_table_lst(source_db)
+
+
+@app.callback(
     Output('eda_db_table_dropdown', 'options'),
     Input('eda_source_db', 'value')
 )
@@ -363,6 +384,7 @@ def update_eda_time_slider(eda_db_table, eda_source_db):
     Output('eda_graph_container', 'children'),
     Output('eda_table_sum_debug', 'children'),
     Output('selection_table', 'columns'),
+    Output('animation_table', 'columns'),
     Output('eda_summary_container', 'children'),
     Input('report_button', 'n_clicks_timestamp'),
     Input('eda_db_table_dropdown', 'value'),
@@ -379,14 +401,14 @@ def update_eda_report(n_clicks_timestamp, db_table, pre_db_table, time_range, _m
     #print(_lst)
     debug_msg = f'table: {db_table}@{source_db}, time_range: {time_range}, mode: {_mode}, Steady_State_box: {_ss}, any_Steady_State: False'
     if any(_arg == None for _arg in _lst):
-        return None, None, [], [], debug_msg, [], []
+        return None, None, [], [], debug_msg, [], [], []
     
     if db_table != pre_db_table:
-        return db_table, None, [], [], debug_msg, [], [] 
+        return db_table, None, [], [], debug_msg, [], [], [] 
     else:
         table_data, table_columns, fig, debug_msg, markdown = eda(db_name=source_db, Table_name=db_table, Time=time_range, SS=_ss, mode=_mode)    
         cols = [{"name": i, "id": i, "selectable": True} for i in utility.State_eda_df.columns]
-        return db_table, table_data, table_columns, fig, debug_msg, cols, markdown
+        return db_table, table_data, table_columns, fig, debug_msg, cols, cols, markdown
 
 
 @app.callback(
@@ -450,6 +472,26 @@ def generate_select_graph(n_clicks_timestamp, db_table, pre_db_table, source_db,
         fig = selected_eda(selected_columns=selected_columns)
         return db_table, fig, f'table: {db_table}@{source_db}, selected_columns: {selected_columns}' 
 
+@app.callback(
+    Output('eda_animation_table_store', 'data'),
+    Output('eda_animation_graph_container', 'children'),
+    Output('eda_animation_graph_debug', 'children'),
+    Input('animation_graph_button', 'n_clicks_timestamp'),
+    Input('eda_db_table_dropdown', 'value'),
+    State('eda_animation_table_store', 'data'),
+    State('eda_source_db', 'value'),
+    State('animation_table', 'selected_columns'),
+)
+def generate_animation_graph(n_clicks_timestamp, db_table, pre_db_table, source_db, selected_columns):
+    print('generate_animation_graph')
+    print(pre_db_table)
+    print(db_table)
+
+    if db_table != pre_db_table:
+        return db_table, [], f'table: {db_table}@{source_db}, selected_columns: {selected_columns}' 
+    else:
+        fig = animation_eda(selected_columns=selected_columns)
+        return db_table, fig, f'table: {db_table}@{source_db}, selected_columns: {selected_columns}'
 
 if __name__ == '__main__':
     app.run_server(debug=True, threaded=True)

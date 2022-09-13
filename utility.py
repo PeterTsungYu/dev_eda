@@ -6,11 +6,17 @@ import mariadb
 import pandas as pd
 import matplotlib.pyplot as plt
 import config
-from dash import dcc
+from dash import dcc, html
 import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
+import dash_bootstrap_components as dbc
+import logging
 
+dev_logger: logging.Logger = logging.getLogger(name='dev')
+dev_logger.setLevel(logging.DEBUG)
+handler: logging.StreamHandler = logging.StreamHandler()
+dev_logger.addHandler(handler)
 
 load_dotenv()
 username = os.environ.get("db_user")
@@ -98,29 +104,30 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
                 'avg_TC11':'TC11', 
                 'avg_EVA_Out':'EVA_Out',
                 'avg_RAD_Out':'RAD_Out',
-                'avg_Scale':'Scale', 
-#                    'avg_DFM_RichGas':'DFM_RichGas',
-                'avg_DFM_RichGas_1min':'DFM_RichGas_1min',
-#                    'avg_DFM_AOG':'DFM_AOG',
-                'avg_DFM_AOG_1min':'DFM_AOG_1min',
+                'avg_Scale':'60_Scale', 
+                'avg_DFM_RichGas':'10_DFM_RichGas',
+                'avg_DFM_RichGas_1min':'60_DFM_RichGas',
+                'avg_DFM_AOG':'10_DFM_AOG',
+                'avg_DFM_AOG_1min':'60_DFM_AOG',
                 'avg_current':'current',
-                # 'avg_GA_H2':'GA_H2',
-                # 'avg_GA_CO2':'GA_CO2',
-                # 'avg_GA_CO':'GA_CO',
-                # 'avg_GA_N2':'GA_N2',
-                # 'avg_GA_CH4':'GA_CH4',
-                'avg_H2':'H2',
-                'avg_CO2':'CO2',
-                'avg_CO':'CO',
-                'avg_MeOH':'MeOH',
-                'avg_H2O':'H2O',
+                'avg_GA_H2':'GA_H2',
+                'avg_GA_CO2':'GA_CO2',
+                'avg_GA_CO':'GA_CO',
+                'avg_GA_N2':'GA_N2',
+                'avg_GA_CH4':'GA_CH4',
+                'avg_H2%':'H2',
+                'avg_CO2%':'CO2',
+                'avg_CO%':'CO',
+                'avg_MeOH%':'MeOH',
+                'avg_H2O%':'H2O',
                 'avg_ADAM_P_Out':'ADAM_P_Out',
                 'avg_ADAM_P_MeMix':'ADAM_P_MeMix',
                 'avg_Header_BR_PV':'Header_BR_PV',
                 'avg_Header_EVA_PV':'Header_EVA_PV',
                 'avg_PCB_SET_PV':'PCB_SET_PV',
-                # 'avg_Convertion':'Convertion',
+                'avg_Convertion':'Convertion',
                 'avg_Ratio':'Ratio',
+                'avg_Lambda':'LambdaPID_PV',
         }
     elif db_name == 'Reformer_BW':
         Set_Point_lst = config.BW_Set_Point_lst
@@ -133,11 +140,11 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
                 'avg_EVA_Out':'EVA_out',
                 'avg_Header_BR_PV':'Header_BR_PV',
                 'avg_RAD_out':'RAD_out',
-                'avg_Scale':'Scale', 
+                'avg_Scale':'60_Scale', 
                 # 'avg_DFM_RichGas':'DFM_RichGas', 
-                'avg_DFM_RichGas_1min':'DFM_RichGas_1min',
+                'avg_DFM_RichGas_1min':'60_DFM_RichGas',
                 # 'avg_DFM_AOG':'DFM_AOG',
-                'avg_DFM_AOG_1min':'DFM_AOG_1min',
+                'avg_DFM_AOG_1min':'60_DFM_AOG',
                 # 'avg_GA_H2':'GA_H2',
                 'avg_H2':'H2',
                 # 'avg_GA_CO2':'GA_CO2',
@@ -223,7 +230,7 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
         print('No Steady-State is found!')
         if mode == 'Table':
             table_columns = [{"name": i, "id": i, "selectable": True} for i in df.columns]
-            return None, table_columns, [], f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', []
+            return None, table_columns, [], f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown
 
 
     if mode == 'Visualization':
@@ -376,13 +383,13 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
             )
             df_ratio = df_sum[['Steady State', 'AOG/Rich']].reset_index()
             df_ratio.columns = ['order', 'Steady State', 'value']
-            df_ratio['order'] = [f'Order_{i+1}' for i in df_AOG/Rich['order']]
+            df_ratio['order'] = [f'Order_{i+1}' for i in df_ratio['order']]
             df_ratio['type'] = 'Ratio'
             df_ratio2 = df_sum[['Steady State', 'H2/MeOHWater_L/g']].reset_index()
             df_ratio2.columns = ['order', 'Steady State', 'value']
-            df_ratio2['order'] = [f'Order_{i+1}' for i in df_H2/MeOHWater_L/g['order']]
+            df_ratio2['order'] = [f'Order_{i+1}' for i in df_ratio2['order']]
             df_ratio2['type'] = 'Ratio'
-            df_cluster2 = pd.concat([df_AOG/Rich, df_H2/MeOHWater_L/g], sort=False)
+            df_cluster2 = pd.concat([df_ratio, df_ratio2], sort=False)
 
             fig_Ratio_Bar = px.bar(df_cluster2, title='Different Rate Cluster Bar', x="type", y="value",
                         color='order', barmode='group', text='Steady State', labels={"value": "Ratio", "type": "Rate Category"})
@@ -416,14 +423,70 @@ def selected_eda(selected_columns=[]):
         return []
     else:
         compared_fig = px.line(_df)
+        compared_fig.update_layout(hovermode="x unified")
         return dcc.Graph(id='compared_fig', figure=compared_fig)
-    
+
+def animation_eda(selected_columns=[]):
+    global State_eda_df
+    _df = State_eda_df[selected_columns]
+    #State_eda_df.loc[:, selected_columns]
+    if _df.empty:
+        return []
+    else:
+        slice_number = 60 # the step of animation
+        # slice original data by slice_number
+        _new_df = _df.loc[_df.index.isin(list(_df.index)[0::slice_number])]
+        af = list(_df.index)[0::slice_number]
+        col = {}
+        # input the new data by the form: [[1],[1,2],[1,2,3],...],[[11],[11,22],[11,22,33],...]
+        for i in selected_columns:
+            x_data = []
+            y_data = []
+            col[str(i)] = [x_data, y_data]
+            for x in range(1, len(af)):
+                y_data.append(_new_df[i][0:x])
+                x_data.append(af[0:x])
+        # draw figure
+        compared_fig = go.Figure(
+            data=[go.Scatter(x=af, y=_new_df[selected_columns[k]], name=selected_columns[k], showlegend=True, line_shape='spline')
+            for k in range(0, len(selected_columns)) # create preview plots
+            ],
+            # define the axis range and the function of buttons
+            layout=go.Layout(
+                xaxis=dict(range=[0, af[-1]], autorange=False),
+                yaxis=dict(autorange=True),
+                hovermode='x unified',
+                updatemenus=[dict(type="buttons",
+                buttons=[dict(
+                    args=[None,{
+                            "frame": {"duration": 10, "redraw": False},
+                            "fromcurrent": True,
+                            "transition": {"duration": 30,"easing": "quadratic-in-out"}
+                            }],
+                    label="Play",
+                    method="animate"),
+                        dict(
+                    args=[[None],{
+                        "frame": {"duration": 0, "redraw": False},
+                        "mode": "immediate",
+                        "transition": {"duration": 0}
+                        }],
+                    label='Pause',
+                    method='animate')
+                ])]),
+                # set the data of each frame and the form of lines
+                frames=[go.Frame(data=[
+                    go.Scatter(x=col[selected_columns[k]][0][n], y=col[selected_columns[k]][1][n], name=selected_columns[k], mode="lines", line_shape='spline')
+                    for k in range(0, len(selected_columns))])
+                    for n in range(0, len(af)-1)])
+        return dcc.Graph(id='compared_fig', figure=compared_fig)
 
 def sum_markdown():
     global State_eda_df_sum
     df_sum = State_eda_df_sum
+    print(df_sum)
 
-    get_values = lambda df, col : df.get(col) if _Steady_state else None
+    get_values = lambda df, col : df.get(col) if not df_sum.empty else None
     Steady_State_lst = get_values(df_sum, 'Steady State')
     avg_H2_flow_lst = get_values(df_sum, 'avg_H2_flow')
     ideal_H2_flow_lst = get_values(df_sum, 'ideal_H2_flow')
@@ -447,31 +510,75 @@ def sum_markdown():
     con_rate_lst = get_values(df_sum, 'con_rate')
     avg_Scale_lst = get_values(df_sum, 'avg_Scale')
     initial_time_lst = get_values(df_sum, 'Init[s]')
+    print(initial_time_lst)
     end_time_lst = get_values(df_sum, 'End[s]')
     avg_Pump_SET_SV_lst = get_values(df_sum, 'avg_Pump_SET_SV')
     avg_Header_EVA_PV_lst = get_values(df_sum, 'avg_Header_EVA_PV')
     avg_Exhaust_gas_lst = get_values(df_sum, 'avg_Exhaust_gas')
     avg_PCB_SET_PV_lst = get_values(df_sum, 'avg_PCB_SET_PV')
+    try:
+        markdown = []
+        if not df_sum.empty:
+            for i in range(0,len(Steady_State_lst)+1,3):               
+                if i<len(Steady_State_lst):
+                    card_1 = dbc.Col(dbc.Card([
+                                dbc.CardHeader(f'穩定時參數:{Steady_State_lst[i]}',style={'color': 'black', 'fontSize': 48}),
+                                dbc.CardBody(f'穩定時間區間 [sec]:{end_time_lst[i]-initial_time_lst[i]} sec',style={'color': 'black', 'fontSize': 26}),
+                                dbc.CardBody(f'汽化室出口溫度 [oC]:{avg_EVA_Out_lst[i]} oC',style={'color': 'black', 'fontSize': 26}),
+                                dbc.CardBody(f'甲醇水進料量 [g/min]:{avg_Scale_lst[i]} g/min',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'平均一分鐘氣體產出量 [LPM]:{avg_DFM_RichGas_1min_lst[i]} LPM',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'平均氫氣產出量 [LPM]:{avg_H2_flow_lst[i]} LPM',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'反應轉化效率:{con_rate_lst[i]} %',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'H2百分比(%):{avg_GA_H2_lst[i]} %',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'CO2百分比(%){avg_GA_CO2_lst[i]} %',style={'color':'black', 'fontSize': 26}),
+                            ],  color="light", inverse=True))
+                else:
+                    card_1 = None
+                if i+1<len(Steady_State_lst):
+                    card_2 = dbc.Col(dbc.Card([
+                                dbc.CardHeader(f'穩定時參數:{Steady_State_lst[i+1]}',style={'color': 'black', 'fontSize': 48}),
+                                dbc.CardBody(f'穩定時間區間 [sec]:{end_time_lst[i+1]-initial_time_lst[i]} sec',style={'color': 'black', 'fontSize': 26}),
+                                dbc.CardBody(f'汽化室出口溫度 [oC]:{avg_EVA_Out_lst[i+1]} oC',style={'color': 'black', 'fontSize': 26}),
+                                dbc.CardBody(f'甲醇水進料量 [g/min]:{avg_Scale_lst[i+1]} g/min',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'平均一分鐘氣體產出量 [LPM]:{avg_DFM_RichGas_1min_lst[i+1]} LPM',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'平均氫氣產出量 [LPM]:{avg_H2_flow_lst[i+1]} LPM',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'反應轉化效率:{con_rate_lst[i+1]} %',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'H2百分比(%):{avg_GA_H2_lst[i+1]} %',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'CO2百分比(%){avg_GA_CO2_lst[i+1]} %',style={'color':'black', 'fontSize': 26}),
+                                # className="w-10",
+                            ],  color="light", inverse=True))
+                else:
+                    card_2 = None
+                if i+2<len(Steady_State_lst):
+                    card_3 = dbc.Col(dbc.Card([
+                                dbc.CardHeader(f'穩定時參數:{Steady_State_lst[i+2]}',style={'color': 'black', 'fontSize': 36}),
+                                dbc.CardBody(f'穩定時間區間 [sec]:{end_time_lst[i+2]-initial_time_lst[i+2]} sec',style={'color': 'black', 'fontSize': 26}),
+                                dbc.CardBody(f'汽化室出口溫度 [oC]:{avg_EVA_Out_lst[i+2]} oC',style={'color': 'black', 'fontSize': 26}),
+                                dbc.CardBody(f'甲醇水進料量 [g/min]:{avg_Scale_lst[i+2]} g/min',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'平均一分鐘氣體產出量 [LPM]:{avg_DFM_RichGas_1min_lst[i+2]} LPM',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'平均氫氣產出量 [LPM]:{avg_H2_flow_lst[i+2]} LPM',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'反應轉化效率:{con_rate_lst[i+2]} %',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'H2百分比(%):{avg_GA_H2_lst[i+2]} %',style={'color':'black', 'fontSize': 26}),
+                                dbc.CardBody(f'CO2百分比(%){avg_GA_CO2_lst[i+2]} %',style={'color':'black', 'fontSize': 26}),
+                            ],  color="light", inverse=True))
+                else:
+                    card_3 = None
+                markdown.append(
 
-    markdown = [
-                dcc.Markdown(
-                    '''
-                    * Item 1
-                    * Item 2
-                    * Item 2a
-                    * Item 2b
-                    '''
-                ),
-                '''
-                dcc.Markdown(
-                    f'''
-                    # *state_{Steady_State_lst[i] == '18A'}
-                    # *state_{Steady_State_lst[1] == '34A'}
-                    # *state_{Steady_State_lst[1] == '51A'}
-                    #*state_{Steady_State_lst[1] == '68A'}
-                    #*state_{Steady_State_lst[1] == '85A'}
-                    '''
-                ),
-                '''
-    ]
+                    html.Div(  
+                        [
+                            dbc.Row(
+                                [
+                                    card_1,
+                                    card_2,
+                                    card_3,
+                                ]
+                            )
+                        ]
+                    )
+                )      
+        print(markdown)
+    except Exception as e:
+        markdown =[f'{e}']
+
     return markdown

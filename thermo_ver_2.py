@@ -113,7 +113,7 @@ H2_Higher = {
     'G': 156.288133,
     'H': 0.0
 }
-def ethalpy(t: float, A, B, C, D, E, F, G, H):
+def ethalpy(t, A, B, C, D, E, F, G, H):
     '''
     The Shomate equation for ethalpy at different temperture compare with the temperture at 298.15 K.
     A to H is coefficients of the equation, data from NIST : https://webbook.nist.gov/chemistry/
@@ -445,7 +445,7 @@ class ThermodynamicsCalculation(CombustionCalc, ReformerReactionCalc):
 
 # ----------------------------------------------------------------------- 
 if __name__ == '__main__':
-    GA = {'H2': 72.3, 'CO2': 25.82, 'CO': 0.5}
+    GA = {'H2': 70.55, 'CO2': 24.51, 'CO': 0.76}
     Ideal_gas_constant = {'R': 0.082, 'P': 1, 'T': 298}
     combustion_heat = {
         'fuel type': 'AOG',
@@ -456,17 +456,18 @@ if __name__ == '__main__':
         'gas composition': GA,
     }
     reformer_heat = {
-        'reactants T': 216.66,
-        'products T': 252.17,
-        'reactants flow': 77.24,
-        'products flow': 126.36,
+        'reactants T': 174.77,
+        'products T': 262.14,
+        'reactants flow': 19.87,
+        'products flow': 32.8,
         'gas composition': GA,
-        'convertion': 100,
+        'convertion': 96.32,
         'pressure': 0.03,
-        'RAD T': 25,
+        'RAD T': 32.11,
     }
 
     Cb = CombustionCalc(combustion_heat, Ideal_gas_constant)
     Re = ReformerReactionCalc(reformer_heat, Ideal_gas_constant)
     T = ThermodynamicsCalculation(combustion_heat, reformer_heat, Ideal_gas_constant)
-    print(T.percentage()[0])
+    print(T.percentage())
+    print(T.productsunit())
