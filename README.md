@@ -36,3 +36,26 @@ Take a look at the [Pythonic IoT project](https://github.com/PeterTsungYu/dev_io
 
 ### Selection graph
 <img src="https://i.imgur.com/QeoNoqJ.png" width="700" height="300">
+
+## Quick Start
+The below instructions are employed in the environment as...
+- Linux-based or Linux system with the Python3 installed 
+- Wifi or Intranet access
+
+### Clone the project
+```shell
+git clone https://github.com/PeterTsungYu/dev_eda.git
+```
+
+### Install required packages
+```shell
+cd dev_eda/
+pip install -r requirements.txt
+```
+
+
+
+
+After starting the NodeRed as a service, you can access the editor in a browser by visiting localhost:1880.
+The browser should be the one running on your machine (like RPi) or the one on your remote computer as you are accessing your machine by remote ssh or connections.
+> The default port for NodeRed is 1880
