@@ -4,3 +4,4 @@
 /*.log
 /ex.py
 /*.ipynb
+.env
