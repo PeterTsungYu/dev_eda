@@ -50,7 +50,7 @@ git clone https://github.com/PeterTsungYu/dev_eda.git
 ### Install required packages
 ```shell
 cd dev_eda/
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 ```
 
 ### MariaDB as mySQL drop-in replacement
@@ -112,8 +112,15 @@ db_pwd=''
 
 > In this project, the localhost is used as the host.
 
+### Execute Python script in shell
+With everything being employed, good luck for your ride!
+```shell
+python3 app.py
+```
+#### If start successfully
+![img_0](https://i.imgur.com/S7Y0D3u.png)
 
-
-After starting the NodeRed as a service, you can access the editor in a browser by visiting localhost:1880.
+If seeing the above image, you can go ahead to open a browser.
+After starting the Dash as a web app, you can access the web app in a browser by visiting localhost:8050.
 The browser should be the one running on your machine (like RPi) or the one on your remote computer as you are accessing your machine by remote ssh or connections.
-> The default port for NodeRed is 1880
+> The default port for Dash is 8050
