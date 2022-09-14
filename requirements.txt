@@ -132,7 +132,7 @@ PyJWT==2.4.0
 pylint==2.2.2
 pyOpenSSL==19.0.0
 pyparsing==2.4.7
-PyPDF2==1.26.0
+PyPDF2==1.27.5
 pyppeteer==0.2.6
 pyrsistent==0.18.0
 pyserial==3.4
