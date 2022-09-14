@@ -20,8 +20,8 @@ import config
 
 app = Dash(__name__, 
             external_stylesheets=[dbc.themes.BOOTSTRAP],
-            routes_pathname_prefix="/Dash/",
-            requests_pathname_prefix="/Dash/"
+            # routes_pathname_prefix="/Dash/",
+            # requests_pathname_prefix="/Dash/"
             )
 
 colors = {
