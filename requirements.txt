@@ -112,7 +112,7 @@ picamera==1.13
 pickleshare==0.7.5
 piglow==1.2.5
 pigpio==1.78
-Pillow==8.4.0
+Pillow==9.0.1
 plotly==5.4.0
 prometheus-client==0.11.0
 prompt-toolkit==3.0.19
