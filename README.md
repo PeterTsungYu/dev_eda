@@ -53,6 +53,64 @@ cd dev_eda/
 pip install -r requirements.txt
 ```
 
+### MariaDB as mySQL drop-in replacement
+> If you wish to apply a pipe to a database, you should establish a database somewhere. Either as a localhost or as a remoe database server.
+
+```shell
+# install MariaDB
+sudo apt-get install mariadb-server
+
+# for secure setting
+sudo mysql_secure_installation
+
+# check systemctl status 
+systemctl status mysql
+
+# to start the service
+sudo systemctl start mysql
+
+# to stop the service 
+sudo systemctl stop mysql
+
+# for login as root 
+$ sudo mysql -u root -p
+```
+
+```
+# inside the shell of mysql
+## create a new db
+CREATE DATABASE <example>;
+
+## create a table in a db
+create table <customer>(<name> varchar(10), <join_date> date) DEFAULT CHARSET=utf8;
+
+## create a new user
+CREATE USER <user>@<IP> IDENTIFIED by <password>;
+
+## grant privilege
+GRANT ALL PRIVILEGES ON <database>.<table> TO <user>@<IP>;
+FLUSH PRIVILEGES;
+
+## show grants
+SHOW GRANTS FOR <user>@<IP>;
+```
+
+### .env file
+You can find an example of an [.env file](https://github.com/PeterTsungYu/dev_eda/blob/dev/.env_example).
+```shell
+touch .env 
+```
+
+```
+# inside the .env, fill in the info
+db_user=''
+db_pwd=''
+```
+> "db_user", the one you created within mysql
+
+> "db_pwd", the one you created within mysql as the user is created
+
+> In this project, the localhost is used as the host.
 
 
 
