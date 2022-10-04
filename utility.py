@@ -381,20 +381,24 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
             graph_lst.append(
                 dcc.Graph(id='fig_Thermo_Bar', figure=fig_Thermo_Bar) 
             )
-            df_ratio = df_sum[['Steady State', 'AOG/Rich']].reset_index()
-            df_ratio.columns = ['order', 'Steady State', 'value']
-            df_ratio['order'] = [f'Order_{i+1}' for i in df_ratio['order']]
-            df_ratio['type'] = 'Ratio'
-            df_ratio2 = df_sum[['Steady State', 'H2/MeOHWater_L/g']].reset_index()
-            df_ratio2.columns = ['order', 'Steady State', 'value']
-            df_ratio2['order'] = [f'Order_{i+1}' for i in df_ratio2['order']]
-            df_ratio2['type'] = 'Ratio'
-            df_cluster2 = pd.concat([df_ratio, df_ratio2], sort=False)
-
-            fig_Ratio_Bar = px.bar(df_cluster2, title='Different Rate Cluster Bar', x="type", y="value",
-                        color='order', barmode='group', text='Steady State', labels={"value": "Ratio", "type": "Rate Category"})
+            df_fuel_ratio = df_sum[['Steady State', 'AOG/Rich']].reset_index()
+            df_fuel_ratio.columns = ['order', 'Steady State', 'value']
+            df_fuel_ratio['order'] = [f'Order_{i+1}' for i in df_fuel_ratio['order']]
+            df_fuel_ratio['type'] = 'Ratio'
+            fig_fuel_Ratio_Bar = px.bar(df_fuel_ratio, title='Fuel ratio Bar', x="type", y="value",
+                        color='order', barmode='group', text='Steady State', labels={"value": "Fuel ratio", "type": "Rate Category"})
             graph_lst.append(
-                dcc.Graph(id='fig_Ratio_Bar', figure=fig_Ratio_Bar) 
+                dcc.Graph(id='fig_fuel_Ratio_Bar', figure=fig_fuel_Ratio_Bar) 
+            )
+
+            df_Lg_ratio = df_sum[['Steady State', 'H2/MeOHWater_L/g']].reset_index()
+            df_Lg_ratio.columns = ['order', 'Steady State', 'value']
+            df_Lg_ratio['order'] = [f'Order_{i+1}' for i in df_Lg_ratio['order']]
+            df_Lg_ratio['type'] = 'Ratio'
+            fig_LG_Ratio_Bar = px.bar(df_Lg_ratio, title='L/g ratio Bar', x="type", y="value",
+                        color='order', barmode='group', text='Steady State', labels={"value": "L/g ratio", "type": "Rate Category"})
+            graph_lst.append(
+                dcc.Graph(id='fig_LG_Ratio_Bar', figure=fig_LG_Ratio_Bar) 
             )
 
             return table_data, table_columns, graph_lst, f'table: {Table_name}@{db_name}, time_range: {Time}, mode: {mode}, Steady_State_box: {SS}, any_Steady_State: {_Steady_state}', markdown

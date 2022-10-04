@@ -26,7 +26,7 @@ class Set_Point:
     Ideal_gas_constant = {'R': 0.082, 'P': 1, 'T': 298}
     cont_step = 60 #continue for 1 min
     TC_range = 6 #5+-oC
-    Scale_range = 5 #5+-g/min
+    Scale_range = 6 #5+-g/min
     continuity = 5 #5min
     def __init__(self, name: str, temp: float, weight_rate: float, dummy: float):
         self.name = name
