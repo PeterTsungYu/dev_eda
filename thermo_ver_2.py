@@ -1,4 +1,4 @@
-# Heating value version 1.7.3
+# Heating value version 1.8.0
 
 from chemicals import MW, combustion_stoichiometry, Hfl, Hfg, HHV_stoichiometry, CAS_from_any, LHV_from_HHV, combustion_data
 # ------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -230,13 +230,14 @@ class CombustionCalc:
         '''
         BR = self.burner
         IGC = self.Idealgasconstant
-        O2_after = self.reactantsunit()[0] - (self.data().stoichiometry['O2'] * (-1)) * self.reactantsunit()[2]
-        N2_after = self.reactantsunit()[1]
+        N2_after = self.fuelunit()[1]
         CO_after = 0
-        H2O_after = self.reactantsunit()[2] * self.data().stoichiometry['H2O']
+        H2O_after = self.fuelunit()[2] * self.data().stoichiometry['H2O']
         if BR['fuel type'] == 'MeOH':
-            CO2_after = self.reactantsunit()[2] * self.data().stoichiometry['CO2']
+            O2_after = self.fuelunit()[0] - (self.data().stoichiometry['O2'] * (-1)) * self.fuelunit()[2] * 1.5
+            CO2_after = self.fuelunit()[2] * self.data().stoichiometry['CO2']
         elif BR['fuel type'] == 'H2' or 'AOG':
+            O2_after = self.fuelunit()[0] - (self.data().stoichiometry['O2'] * (-1)) * self.fuelunit()[2] * 0.5
             CO2_after = BR['gas composition']['CO2'] / 100 * BR['fuel flow'] / IGC['R'] / IGC['T'] * IGC['P']
         else:
             raise KeyError('Fuel shoud be H2, MeOH, or AOG.')
@@ -268,7 +269,7 @@ class CombustionCalc:
             LHV_Jg = HHV_Jm / MW('hydrogen') * (-1)
         else:
             raise KeyError('Fuel shoud be H2, MeOH, or AOG.')
-        Give_Heat = HHV_Jg * self.reactantsunit()[2] / 1000 
+        Give_Heat = HHV_Jg * self.fuelunit()[2] / 1000 
         return Give_Heat, HHV_Jg, LHV_Jg
     # wasted heat go into environment
     def wasted(self):
@@ -279,22 +280,22 @@ class CombustionCalc:
                    (W_total,)
                    (kJ,)
         '''
-        products_mole = self.productsunit()
-        products_H = deltaH(self.burner['burner out T'])
-        # MeOH, Cp regression line, 279 ~ 585 K
-        H_MeOH = (0.0808 * (self.burner['burner out T'] - 25) + 19.265) * self.fuelunit()[2] / MW('methanol') * (self.burner['burner out T'] - 25) / 1000
-        W_O2 = products_mole[0] * products_H[0]
-        W_N2 = products_mole[1] * products_H[1]
-        W_CO2 = products_mole[2] * products_H[2]
-        W_H2O = products_mole[3] * products_H[3]
+        exhaust_mole = self.exhaustgasunit()
+        exhaust_H = deltaH(self.burner['burner out T'])
+        W_O2 = exhaust_mole[0] * exhaust_H[0]
+        W_N2 = exhaust_mole[1] * exhaust_H[1]
+        W_CO2 = exhaust_mole[2] * exhaust_H[2]
+        W_H2O = exhaust_mole[3] * exhaust_H[3]
         if self.burner['burner out T'] <= 298 - 273:
             W_total = 0
         else:
-            W_total = (W_O2 + W_N2 + W_CO2 + W_H2O) 
+            W_total = (W_O2 + W_N2 + W_CO2 + W_H2O)
         return W_total,
     # no function yet
     def _incompletecombustion(self, efficiency = 1):
         burner = self.burner
+        # MeOH, Cp regression line, 279 ~ 585 K
+        # H_MeOH = (0.0808 * (self.burner['burner out T'] - 25) + 19.265) * self.fuelunit()[2] / MW('methanol') * (self.burner['burner out T'] - 25) / 1000
         return burner, efficiency
 
 class ReformerReactionCalc:
@@ -384,11 +385,11 @@ class ReformerReactionCalc:
         dH_b = deltaH(RC['reactants T'])
         dH_a = deltaH(RC['products T'])
         # MeOH, Cp regression line, 279 ~ 585 K 
-        H_MeOH = (0.0808 * (RC['reactants T'] - 25) + 19.265) * self.reactantsunit()[2] / MW('methanol') * (RC['reactants T'] - 25) / 1000
+        H_MeOH = (0.0808 * (RC['reactants T'] - 25) + 19.265) * RU[2] * (RC['reactants T'] - 25) / 1000
         kJ_b_MeOH = H_MeOH
         kJ_a_MeOH = H_MeOH / RU[2] * PU[0]
         kJ_b_H2O = dH_b[3] * RU[3]
-        kJ_a_H2O = H_MeOH * PU[1]
+        kJ_a_H2O = dH_a[3] * PU[1]
         kJ_H2 = dH_a[5] * PU[2]
         kJ_CO2 = dH_a[5] * PU[3]
         kJ_CO = dH_a[4] * PU[4]
@@ -406,7 +407,7 @@ class ReformerReactionCalc:
         kJ_before = HC[0] + HC[2]
         kJ_after = HC[1] + HC[3] + HC[4] + HC[5] + HC[6]
         reaction_H0 = 49.2
-        need_heat = kJ_after - kJ_before + 49.2 * RU[0]
+        need_heat = kJ_after - kJ_before + reaction_H0 * RU[0]
         return kJ_before, kJ_after, need_heat
     
     def percentage(self):
