@@ -93,7 +93,7 @@ def eda(db_name:str, Table_name: str, Time: tuple, SS: str, mode: str):
         TC_ss = 'TC10'
         avg = {
                 'avg_Air_MFC_SET_SV':'Air_MFC_SET_SV',
-                'avg_H2_MFC_SET_SV':'H2_MFC_SET_SV',
+                # 'avg_H2_MFC_SET_SV':'H2_MFC_SET_SV',
                 'avg_TC6':'TC6',
 #                    'avg_TC7':'TC7',
 #                    'avg_TC8':'TC8',

@@ -321,17 +321,23 @@ class ReformerReactionCalc:
     def __init__(self, reaction, Idealgasconstant):
         self.reaction = reaction
         self.Idealgasconstant = Idealgasconstant
-    # Convertion adjustment
+    # Convertion calculation
     def conver(self):
         '''
-        Adjust the convertion, if over 100 % let it no more than one hundred, if no convertion given assume 100 %, 
-        if convertion below 0 raise error.
-        調整轉化率，轉化率的值應介於 0 ~ 100 之間
+        Calculate the convertion, if over 100 % let it no more than one hundred, if convertion below 0 raise error.
+        計算轉化率，轉化率的值應介於 0 ~ 100 之間
         '''
         RC = self.reaction
+        IGC = self.Idealgasconstant
+        decomp = 0.99 # Percentage of methanol decomposition
+        WGS_conver = 0.97 # WGS convertion
+        weight_percentage = 0.543
+        MeOH_before = RC['reactants flow'] / MW('methanol') * weight_percentage
+        H2_after = RC['products flow'] * RC['gas composition']['H2'] / 100 / IGC['R'] / (RC['RAD T'] + 273) * (RC['pressure'] / 1.01325 + 1)
         if RC.get('convertion') == None:
-            conver = 1
-#             print('Assume convertion = 100 %')
+            conver = MeOH_before * 3 * decomp * WGS_conver / H2_after
+            if conver > 1:
+                conver = 1
         elif RC.get('convertion') > 100:
             conver = 1
 #             print('Convertion over 100 %, automaticly change to 100 %')
@@ -462,7 +468,7 @@ if __name__ == '__main__':
         'reactants flow': 19.87,
         'products flow': 32.8,
         'gas composition': GA,
-        'convertion': 96.32,
+        # 'convertion': 96.32,
         'pressure': 0.03,
         'RAD T': 32.11,
     }
@@ -471,4 +477,3 @@ if __name__ == '__main__':
     Re = ReformerReactionCalc(reformer_heat, Ideal_gas_constant)
     T = ThermodynamicsCalculation(combustion_heat, reformer_heat, Ideal_gas_constant)
     print(T.percentage())
-    print(T.productsunit())

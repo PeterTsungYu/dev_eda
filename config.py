@@ -141,7 +141,7 @@ class Set_Point:
                         'reactants flow': self.ss_avg.get('avg_Scale')[i].avg_value,
                         'products flow': DFM_total,
                         'gas composition': gas_comp,
-                        'convertion': self.ss_avg.get('avg_Convertion')[i].avg_value,
+                        # 'convertion': self.ss_avg.get('avg_Convertion')[i].avg_value,
                         'pressure': self.ss_avg.get('avg_ADAM_P_Out')[i].avg_value,
                         'RAD T': self.ss_avg.get('avg_RAD_Out')[i].avg_value,
                     }
