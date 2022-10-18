@@ -69,42 +69,102 @@ print(percentage_ratio)
 ```
 ## Class and Function
 ### Basic Function
-`ethalpy(t, A, B, C, D, E, F, G, H)`
+`ethalpy(t, A, B, C, D, E, F, G, H)`  
 The Shomate equation for ethalpy at different temperture compare with the temperture at 298.15 K. A to H is coefficients of the equation, data from [NIST](https://webbook.nist.gov/chemistry/).
 t is tempertrue giving by °C.
 
-`deltaH(T)`
+`deltaH(T)`  
 To calculate the delta H of each species.
 T is tempertrue giving by K.
+
 ### `CombustionCalc(burner, Idealgasconstant)`
 This class is for the calculation of combustion prosses. To use this, you need some parameters:
 1. burner: a dict, including:
-  - fuel type: str, 'H2', 'MeOH', or 'AOG'
-  - fuel flow: float, [g/min] for 'MeOH', [LPM] for 'H2' & 'AOG'
-  - air flow: float, [LPM]
-  - air T: float, [°C]
-  - burner out T: float, [°C]
-  - gas composition: a dict, composition of AOG the unit of values use [%]
+   - fuel type: str, 'H2', 'MeOH', or 'AOG'
+   - fuel flow: float, [g/min] for 'MeOH', [LPM] for 'H2' & 'AOG'
+   - air flow: float, [LPM]
+   - air T: float, [°C]
+   - burner out T: float, [°C]
+   - gas composition: a dict, composition of AOG the unit of values use [%]
 2. Idealgasconstant: a dict, including:
-  - R: float, the ideal gas constant usually use 0.082
-  - T: float, [K]
-  - P: float, [atm]
-#### `data(self)`
-To calculate the combustion data, will get HHV at [298 K], [1 atm].
+   - R: float, the ideal gas constant usually use 0.082
+   - T: float, [K]
+   - P: float, [atm]
+#### `CombustionCalc.data()`
+To calculate the combustion data, will get HHV at [298 K], [1 atm].  
 
-#### `fuelunit(self)`
-To turn the unit of air and fuel into [mole/min].
+**Return**
+  - *com_data*: class
+  - Combustion data of fuel, inculding the mole ratio of CO2, H2O, and O2. Also the higher heating value(HHV), standard enthalpy of formation, and molecular weight     of fuel.  
 
-#### `exhaustgasunit(self)`
-To turn the unit of products after combustion into [mole/min].
+**Example**
+```shell
+Cb = CombustionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+Cb.data()
+# return
+CombustionData(stoichiometry={'CO2': 0, 'O2': -0.5, 'H2O': 1.0}, HHV=-285825.0, Hf=0, MW=2.01588)
+```
+#### `CombustionCalc.fuelunit()`
+To turn the unit of air and fuel into [mole/min].  
 
-#### `heatgive(self)`
-According to the fuel type, calculate the heating value and total heat-gived of combustion.
+**Return**
+  - *(O2_before, N2_before, fuel_before)*: tuple
+  - The flow rate of fuel and air before combustion, [mole/min].  
 
-#### `wasted(self)`
-To calculate the heat wasted to environment.
+**Example**
+```shell
+Cb = CombustionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+Cb.fuelunit()
+# return
+(1.117651185535599, 4.2023684576138525, 1.0278323368963824)
+```
 
-###`ReformerReactionCalc(reaction, Idealgasconstant)`
+#### `CombustionCalc.exhaustgasunit()`
+To turn the unit of products after combustion into [mole/min].  
+
+**Return**
+  - *(O2_after, N2_after, CO2_after, H2O_after)*: tuple
+  - The flow rate of fuel and air after fully combustion, [mole/min].  
+
+**Example**
+```shell
+Cb = CombustionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+Cb.exhaustgasunit()
+# return
+(0.8606931013115035, 4.2023684576138525, 0.17713480111311183, 1.0278323368963824)
+```
+
+#### `CombustionCalc.heatgive()`
+According to the fuel type, calculate the heating value and total heat-gived of combustion.  
+
+**Return**
+  - *(Give_Heat, HHV_Jg, LHV_Jg)*: tuple
+  - Giving heat by combustion and heating value accorrding to different fuel type, [kJ, J/g, J/g].  
+
+**Example**
+```shell
+Cb = CombustionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+Cb.heatgive()
+# return
+(145.7329690722704, 141786.71349485088, 119954.3147409568)
+```
+
+#### `CombustionCalc.wasted()`
+To calculate the heat wasted to environment.  
+
+**Return**
+  - *W_total*: tuple
+  - The heat of exhaustgas, [kJ].  
+
+**Example**
+```shell
+Cb = CombustionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+Cb.wasted()
+# return
+(42.76296365954362,)
+```
+
+### `ReformerReactionCalc(reaction, Idealgasconstant)`
 This class is for the calculation of reaction prosses. To use this, you need some parameters:
 1. reaction: a dict, including:
    - 'reactants T': float, [°C]
