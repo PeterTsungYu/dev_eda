@@ -285,17 +285,25 @@ def debug(a, b, c):
     Output('download_link', 'href'),
     Output('db_table_preview_title', 'children'),
     Output('db_table_preview_container', 'children'),
+    Output('new_table_name_input', 'value'),
+    Output('destination_db', 'value'),
     Input('db_table_dropdown', 'value'),
 )
 def update_table_preview_and_download_link(Table_name):
     if Table_name == None:
-        return None, f'title: {Table_name}', None
+        return None, f'title: {Table_name}', None, None, None
     df = db_table_to_df(db_name='reformer', Table_name=Table_name).reset_index()
     df = df.head(5)
-    print(df)
+    #print(df)
     table = dash_table.DataTable(df.to_dict('records'), [{"name": i, "id": i} for i in df.columns], style_table={'overflowX': 'auto','minWidth': '100%',})
     link = '/Dash/urlToDownload?value={}'.format(Table_name)
-    return link, f'title: {Table_name}', table
+    if 'BW' in Table_name:
+        destination_db = 'Reformer_BW'
+    elif 'SE' in Table_name:
+        destination_db = 'Reformer_SE'
+    elif '15kW' in Table_name:
+        destination_db = 'Prototype_15kW'
+    return link, f'title: {Table_name}', table, Table_name, destination_db
 
 
 @app.server.route('/Dash/urlToDownload') 
@@ -518,7 +526,7 @@ def display_page(pathname, search):
 
     if pathname == '/Dash/':
         return data_analysis_layout
-    elif check_type == '/season_check':
+    elif pathname == '/Dash/SE_Reformer/':
         pass
 
 
