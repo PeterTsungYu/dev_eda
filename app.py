@@ -110,13 +110,6 @@ data_analysis_layout = [html.Div([
                         ),
                 dbc.FormText("Please Fill in A Purpose Of The Data If Any"),
                 ]),
-            html.Br(),
-            html.Div([
-                dbc.Input(placeholder="A Link Goes Here...", type="text", size="md", 
-                        id='new_table_link_input', debounce=True, style={"width": "30%"},
-                        ),
-                dbc.FormText("Please Fill in A Link If Any"),
-                ]),
             html.Hr(),
             dbc.Button('Archive', id='archive_button', n_clicks=0),
             html.Span(id="archive_output", style={"margin-left":'10px', "verticalAlign": "middle"}),
@@ -348,10 +341,9 @@ def download_csv():
         State("new_table_name_input", "value"),
         State("new_table_sn_input", "value"),
         State("new_table_purpose_input", "value"),
-        State("new_table_link_input", "value"),
     ]
 )
-def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination_db, new_table_name, new_table_sn, new_table_purpose, new_table_link):
+def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination_db, new_table_name, new_table_sn, new_table_purpose):
     _lst = [n_clicks_timestamp, source_db, db_table, destination_db, new_table_name]
     #print(_lst)
     if any(_arg == None for _arg in _lst):
@@ -366,7 +358,7 @@ def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination
             conn.close()
 
             conn, cur = db_conn(db_name='reformer_maintenance')
-            cur.execute("INSERT INTO maintenance_table (Table_Name, DB_Name, SN, Purpose, Link) VALUES (?, ?, ?, ?, ?)", (new_table_name, source_db, new_table_sn, new_table_purpose, new_table_link))
+            cur.execute("INSERT INTO maintenance_table (Table_Name, DB_Name, SN, Purpose) VALUES (?, ?, ?, ?)", (new_table_name, source_db, new_table_sn, new_table_purpose))
             conn.commit()
 
             succeed = True
