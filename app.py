@@ -91,10 +91,31 @@ data_analysis_layout = [html.Div([
             ),
             html.Br(),
             html.Div([
-                dbc.Input(placeholder="Input Goes Here...", type="text", size="md", 
+                dbc.Input(placeholder="A New Table Name Goes Here...", type="text", size="md", 
                         id='new_table_name_input', debounce=True, style={"width": "30%"},
                         ),
                 dbc.FormText("Please Assign A New Table Name"),
+                ]),
+            html.Br(),
+            html.Div([
+                dbc.Input(placeholder="S/N Number Goes Here...", type="text", size="md", 
+                        id='new_table_sn_input', debounce=True, style={"width": "30%"},
+                        ),
+                dbc.FormText("Please Fill in A Serial Number If Any"),
+                ]),
+            html.Br(),
+            html.Div([
+                dbc.Input(placeholder="Purpose Goes Here...", type="text", size="md", 
+                        id='new_table_purpose_input', debounce=True, style={"width": "30%"},
+                        ),
+                dbc.FormText("Please Fill in A Purpose Of The Data If Any"),
+                ]),
+            html.Br(),
+            html.Div([
+                dbc.Input(placeholder="A Link Goes Here...", type="text", size="md", 
+                        id='new_table_link_input', debounce=True, style={"width": "30%"},
+                        ),
+                dbc.FormText("Please Fill in A Link If Any"),
                 ]),
             html.Hr(),
             dbc.Button('Archive', id='archive_button', n_clicks=0),
@@ -318,16 +339,19 @@ def download_csv():
 
 
 @app.callback(
-    Output("archive_output", "children"), 
+    Output("archive_output", "children"),
+    Input("archive_button", "n_clicks_timestamp"),
     [
-        Input("archive_button", "n_clicks_timestamp"),
-        Input("source_db", "value"),
-        Input("db_table_dropdown", "value"),
-        Input("destination_db", "value"),
-        Input("new_table_name_input", "value"),
+        State("source_db", "value"),
+        State("db_table_dropdown", "value"),
+        State("destination_db", "value"),
+        State("new_table_name_input", "value"),
+        State("new_table_sn_input", "value"),
+        State("new_table_purpose_input", "value"),
+        State("new_table_link_input", "value"),
     ]
 )
-def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination_db, new_table_name):
+def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination_db, new_table_name, new_table_sn, new_table_purpose, new_table_link):
     _lst = [n_clicks_timestamp, source_db, db_table, destination_db, new_table_name]
     #print(_lst)
     if any(_arg == None for _arg in _lst):
@@ -336,16 +360,22 @@ def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination
         #print(n_clicks_timestamp)
         succeed = False
         try:
-            cur = db_conn(db_name=destination_db)
+            conn, cur = db_conn(db_name=destination_db)
             #print(f"create table {new_table_name} as select * from {source_db}.{db_table};")
             cur.execute(f"create table {new_table_name} as select * from {source_db}.{db_table};")
+            conn.close()
+
+            conn, cur = db_conn(db_name='reformer_maintenance')
+            cur.execute("INSERT INTO maintenance_table (Table_Name, DB_Name, SN, Purpose, Link) VALUES (?, ?, ?, ?, ?)", (new_table_name, source_db, new_table_sn, new_table_purpose, new_table_link))
+            conn.commit()
+
             succeed = True
         except mariadb.Error as e:
             print(f"Error connecting to MariaDB Platform: {e}")
             return "Not Archived" 
         finally:
             if succeed:
-                cur.close()
+                conn.close()
                 return f"Archived As {destination_db}.{new_table_name}"
 
 
@@ -380,7 +410,7 @@ def update_eda_time_slider(eda_db_table, eda_source_db):
     else:
         succeed = False
         try:
-            cur = db_conn(db_name=eda_source_db)
+            conn, cur = db_conn(db_name=eda_source_db)
             cur.execute(f"SELECT * FROM {eda_db_table}")
             cur.fetchall()
             max = cur.rowcount
@@ -391,7 +421,7 @@ def update_eda_time_slider(eda_db_table, eda_source_db):
             return ['Duration: None', None, [None,None]]
         finally:
             if succeed:
-                cur.close()
+                conn.close()
                 return [f'Duration: {round(max/60,2)} [min]', max/60, [0, max/60]]
 
 

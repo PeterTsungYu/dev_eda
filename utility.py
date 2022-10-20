@@ -39,7 +39,7 @@ def db_conn(db_name:str):
         # Get Cursor for tx
         cur = conn.cursor(named_tuple=False)
         #print(conn)
-        return cur
+        return conn, cur
         
     except mariadb.Error as e:
         print(f"Error connecting to MariaDB Platform: {e}")
@@ -48,27 +48,27 @@ def db_conn(db_name:str):
 
 def db_get_table_lst(db_name:str):
     try:
-        cur = db_conn(db_name=db_name)
+        conn, cur = db_conn(db_name=db_name)
         cur.execute('SHOW tables')
         source_table_lst = [u for i in cur.fetchall()[:] for u in i][::-1]
     except mariadb.Error as e:
         print(f"Error connecting to MariaDB Platform: {e}")
         return None
     finally:
-        cur.close()
+        conn.close()
     return source_table_lst
 
 
 def db_table_to_df(db_name:str, Table_name: str):
     df = pd.DataFrame()
     try:
-        cur = db_conn(db_name=db_name)
+        conn, cur = db_conn(db_name=db_name)
         cur.execute(f"SELECT * FROM {Table_name}")
         df = pd.DataFrame(cur.fetchall(), columns=[entry[0] for entry in cur.description]).set_index('Id')
     except mariadb.Error as e:
         print(f"Error connecting to MariaDB Platform: {e}")
     finally:
-        cur.close()
+        conn.close()
         return df
 
 
