@@ -38,6 +38,56 @@ app.layout = html.Div(children=[
     html.Div(id='page_content', children=[])
     ])
 
+reformer_maintenance_card = [html.Div([
+    html.H1(children='Hi Platformer', 
+            style={
+                'textAlign': 'center',
+                'color': colors['text'],
+            }),
+
+    dbc.Card([
+        html.Div([
+            html.H3(children='Maintenance Table', 
+                style={'color': colors['text'],}
+                ),
+            dcc.Dropdown(
+                ['Reformer_SE', 'Reformer_BW',],
+                'Reformer_SE',
+                placeholder='Select A Type...',
+                id='reformer_type_dropdown',
+                style={"width": "50%"},
+                persistence=True,
+                ),
+            html.Br(),
+            dash_table.DataTable(id='reformer_maintenance_table', data=None, 
+                style_table={'overflowX': 'auto','minWidth': '100%',}, style_header={'backgroundColor': '#0074D9', 'color': 'white'},
+                style_cell={'textAlign': 'center', 'minWidth': '180px', 'maxWidth': '180px', 'width': '180px', 'whiteSpace': 'normal', 'height': '35px',},
+                filter_action="native",
+                page_action="native",
+                page_current= 0,
+                page_size= 20,
+                export_format='xlsx',
+                export_headers='display',),
+        ]),
+    ]),
+])]
+
+
+reformer_maintenance_layout = [dbc.Row(
+        [
+            dbc.Col(html.Div(), width='auto'),
+            dbc.Col(
+                dbc.Card([
+                    dbc.CardHeader("reformer_maintenance_table"),
+                    dbc.CardBody(reformer_maintenance_card),
+                    ]), 
+                    width=11),
+            dbc.Col(html.Div(), width='auto'),
+        ],
+        justify="center"
+    )]
+
+
 data_analysis_layout = [html.Div([
     html.H1(children='Hi Platformer', 
             style={
@@ -285,6 +335,22 @@ data_analysis_layout = [html.Div([
 
 
 @app.callback(
+    Output('reformer_maintenance_table', 'data'),
+    Output('reformer_maintenance_table', 'columns'),
+    Input('reformer_type_dropdown', 'value'),
+)
+def reformer_maintenance_datatable(reformer_type):
+    try:
+        conn, cur = db_conn(db_name='reformer_maintenance')
+        data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}'", conn)
+        print(data)
+        columns=[{"name": i, "id": i, "editable":False} if i in ['Table_Name', 'DB_Name'] else {"name": i, "id": i, "editable":True} for i in data.columns]
+    except mariadb.Error as e:
+      print(f"Error retrieving entry from database: {e}")
+    finally:
+        return data.to_dict('records'), columns
+        
+@app.callback(
     Output('debug_output_1', 'children'),
     Input('eda_display_mode', 'value'),
     Input('eda_steady_state_check', 'value'),
@@ -358,7 +424,7 @@ def on_archive_button_click(n_clicks_timestamp, source_db, db_table, destination
             conn.close()
 
             conn, cur = db_conn(db_name='reformer_maintenance')
-            cur.execute("INSERT INTO maintenance_table (Table_Name, DB_Name, SN, Purpose) VALUES (?, ?, ?, ?)", (new_table_name, source_db, new_table_sn, new_table_purpose))
+            cur.execute("INSERT INTO maintenance_table (Table_Name, DB_Name, SN, Purpose) VALUES (?, ?, ?, ?)", (new_table_name, destination_db, new_table_sn, new_table_purpose))
             conn.commit()
 
             succeed = True
@@ -548,8 +614,8 @@ def display_page(pathname, search):
 
     if pathname == '/Dash/':
         return data_analysis_layout
-    elif pathname == '/Dash/SE_Reformer/':
-        pass
+    elif pathname == '/Dash/Reformer/':
+        return reformer_maintenance_layout
 
 
 if __name__ == '__main__':
