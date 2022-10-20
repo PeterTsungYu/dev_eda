@@ -21,14 +21,24 @@ import config
 app = Dash(__name__, 
             external_stylesheets=[dbc.themes.BOOTSTRAP],
             routes_pathname_prefix="/Dash/",
-            requests_pathname_prefix="/Dash/"
+            requests_pathname_prefix="/Dash/",
+            suppress_callback_exceptions=True,
             )
 
 colors = {
     'background': '#111111',
     'text': '#7FDBFF'
 }
-app.layout = html.Div([
+
+url = dcc.Location(id='url', refresh=True)
+app.layout = html.Div(children=[
+    # represents the browser address bar and doesn't render anything
+    url,
+    # content will be rendered in this element
+    html.Div(id='page_content', children=[])
+    ])
+
+data_analysis_layout = [html.Div([
     html.H1(children='Hi Platformer', 
             style={
                 'textAlign': 'center',
@@ -257,7 +267,7 @@ app.layout = html.Div([
     ],
     body=True,
     ),
-])
+])]
 
 
 @app.callback(
@@ -492,6 +502,25 @@ def generate_animation_graph(n_clicks_timestamp, db_table, pre_db_table, source_
     else:
         fig = animation_eda(selected_columns=selected_columns)
         return db_table, fig, f'table: {db_table}@{source_db}, selected_columns: {selected_columns}'
+
+# route to check_layout / index_page / leave_form
+@app.callback(
+    [
+        Output('page_content', 'children'),
+        ],
+    [
+        Input('url', 'pathname'), 
+        Input('url', 'search'),
+        ]
+    )
+def display_page(pathname, search):
+    print([pathname, search])
+
+    if pathname == '/Dash/':
+        return data_analysis_layout
+    elif check_type == '/season_check':
+        pass
+
 
 if __name__ == '__main__':
     app.run_server(debug=True, threaded=True)
