@@ -25,7 +25,7 @@ class Set_Point:
     WGS_conver = 0.97 # WGS convertion
     Ideal_gas_constant = {'R': 0.082, 'P': 1, 'T': 298}
     cont_step = 60 #continue for 1 min
-    TC_range = 6 #5+-oC
+    TC_range = 10 #5+-oC
     Scale_range = 6 #5+-g/min
     continuity = 5 #5min
     def __init__(self, name: str, temp: float, weight_rate: float, dummy: float):

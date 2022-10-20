@@ -259,14 +259,14 @@ class CombustionCalc:
             HHV_Jm = HHV_stoichiometry(CS_fuel, Hf_fuel)
             HHV_Jg = HHV_Jm / MW('methanol') * (-1)
             LHV_Jm = LHV_from_HHV(HHV_Jm, CS_fuel['H2O'])
-            LHV_Jg = HHV_Jm / MW('methanol') * (-1)
+            LHV_Jg = LHV_Jm / MW('methanol') * (-1)
         elif fuel_type == 'H2' or 'AOG':
             CS_fuel = combustion_stoichiometry({'C': 0, 'H': 2, 'O': 0})
             Hf_fuel = 0
             HHV_Jm = HHV_stoichiometry(CS_fuel, Hf_fuel)
             HHV_Jg = HHV_Jm / MW('hydrogen') * (-1)
             LHV_Jm = LHV_from_HHV(HHV_Jm, CS_fuel['H2O'])
-            LHV_Jg = HHV_Jm / MW('hydrogen') * (-1)
+            LHV_Jg = LHV_Jm / MW('hydrogen') * (-1)
         else:
             raise KeyError('Fuel shoud be H2, MeOH, or AOG.')
         Give_Heat = HHV_Jg * self.fuelunit()[2] / 1000 
@@ -476,4 +476,5 @@ if __name__ == '__main__':
     Cb = CombustionCalc(combustion_heat, Ideal_gas_constant)
     Re = ReformerReactionCalc(reformer_heat, Ideal_gas_constant)
     T = ThermodynamicsCalculation(combustion_heat, reformer_heat, Ideal_gas_constant)
-    print(T.percentage())
+    print(type(T.wasted()))
+    print(T.wasted())
