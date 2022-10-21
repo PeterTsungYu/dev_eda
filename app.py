@@ -11,6 +11,7 @@ import dash_bootstrap_components as dbc
 import plotly.express as px
 from plotly.subplots import make_subplots
 import plotly.graph_objects as go
+from collections import OrderedDict
 
 # customized library
 from utility import db_conn, db_get_table_lst, eda, db_table_to_df, compared_eda, selected_eda, animation_eda
@@ -28,7 +29,13 @@ app = Dash(__name__,
 colors = {
     'background': '#111111',
     'text': '#7FDBFF'
-}
+    }
+
+status_dict = OrderedDict([
+    ('Overall', ['Excellent', 'Good', 'Okay', 'Bad', 'Broken']),
+    ('BR_Status', ['Stable', 'Unstable', 'Disabled']),
+    ('SR_Status', ['Stable', 'Unstable', 'Disabled', 'Renewed']),
+])
 
 url = dcc.Location(id='url', refresh=True)
 app.layout = html.Div(children=[
@@ -38,13 +45,84 @@ app.layout = html.Div(children=[
     html.Div(id='page_content', children=[])
     ])
 
+archive_card = dbc.Card([
+    html.Div([
+        html.H3(children='Archive', 
+                style={'color': colors['text'],}
+                ),
+        html.I(children='Archive From Database:',
+                style={
+                    'textAlign': 'left',
+                    'color': colors['text'],
+                }),
+        dcc.Dropdown(
+                ['reformer', 'Reformer_BW', 'Reformer_BW_Alert', 'Reformer_SE', 'Reformer_SE_Alert', 'Prototype_15kW', 'Prototype_15kW_Alert'],
+                'reformer',
+                placeholder='Select A Database...',
+                id='source_db',
+                style={"width": "50%"},
+                persistence=True,
+            ),
+        dcc.Dropdown(
+            options=[],
+            placeholder='Select A Source Table...',
+            id='db_table_dropdown',
+            style={"width": "50%"},
+        ),
+        html.H6(id='db_table_preview_title'),
+        html.Div(id='db_table_preview_container'),
+        html.A(
+            'Download Data',
+            id='download_link',
+            target="_blank"
+        ),
+        html.Br(),
+        html.Br(),
+        html.I(children='To Destination Database:', 
+                style={
+                    'textAlign': 'left',
+                    'color': colors['text'],
+                }),
+        dcc.Dropdown(
+            ['Reformer_BW', 'Reformer_BW_Alert', 'Reformer_SE', 'Reformer_SE_Alert', 'Prototype_15kW', 'Prototype_15kW_Alert'],
+            placeholder='Select A Destination Database...',
+            id='destination_db',
+            style={"width": "50%"},
+        ),
+        html.Br(),
+        html.Div([
+            dbc.Input(placeholder="A New Table Name Goes Here...", type="text", size="md", 
+                    id='new_table_name_input', debounce=True, style={"width": "30%"},
+                    ),
+            dbc.FormText("Please Assign A New Table Name"),
+            ]),
+        html.Br(),
+        html.Div([
+            dbc.Input(placeholder="S/N Number Goes Here...", type="text", size="md", 
+                    id='new_table_sn_input', debounce=True, style={"width": "30%"},
+                    ),
+            dbc.FormText("Please Fill in A Serial Number If Any"),
+            ]),
+        html.Br(),
+        html.Div([
+            dbc.Input(placeholder="Purpose Goes Here...", type="text", size="md", 
+                    id='new_table_purpose_input', debounce=True, style={"width": "30%"},
+                    ),
+            dbc.FormText("Please Fill in A Purpose Of The Data If Any"),
+            ]),
+        html.Hr(),
+        dbc.Button('Archive', id='archive_button', n_clicks=0),
+        html.Span(id="archive_output", style={"margin-left":'10px', "verticalAlign": "middle"}),
+    ],),
+],
+body=True,
+)
 reformer_maintenance_card = [html.Div([
     html.H1(children='Hi Platformer', 
             style={
                 'textAlign': 'center',
                 'color': colors['text'],
             }),
-
     dbc.Card([
         html.Div([
             html.H3(children='Maintenance Table', 
@@ -58,117 +136,108 @@ reformer_maintenance_card = [html.Div([
                 style={"width": "50%"},
                 persistence=True,
                 ),
+            dcc.Dropdown(
+                placeholder='Select A SN...',
+                id='reformer_sn_dropdown',
+                style={"width": "50%"},
+                persistence=True,
+                ),
             html.Br(),
-            dash_table.DataTable(id='reformer_maintenance_table', data=None, 
+            dash_table.DataTable(id='reformer_maintenance_table', data=None,
+                columns=[
+                    {"name": 'Table_Name', "id": 'Table_Name', "editable":False},
+                    {"name": 'DB_Name', "id": 'DB_Name', "editable":False}, 
+                    {"name": 'SN', "id": 'SN', "editable":False},
+                    {"name": 'Overall', "id": 'Overall', "editable":True, "presentation":"dropdown"}, 
+                    {"name": 'BR_Status', "id": 'BR_Status', "editable":True, "presentation":"dropdown"}, 
+                    {"name": 'SR_Status', "id": 'SR_Status', "editable":True, "presentation":"dropdown"},
+                    {"name": 'Conversion', "id": 'Conversion', "editable":True,},
+                    {"name": 'Site', "id": 'Site', "editable":True,},
+                    {"name": 'RunTime', "id": 'RunTime', "editable":True,},
+                    {"name": 'Purpose', "id": 'Purpose', "editable":True,},
+                    {"name": 'Link1', "id": 'Link1', "editable":True,},
+                    {"name": 'Link2', "id": 'Link2', "editable":True,},
+                ], 
                 style_table={'overflowX': 'auto','minWidth': '100%',}, style_header={'backgroundColor': '#0074D9', 'color': 'white'},
-                style_cell={'textAlign': 'center', 'minWidth': '180px', 'maxWidth': '180px', 'width': '180px', 'whiteSpace': 'normal', 'height': '35px',},
+                style_cell={'textAlign': 'center', 'minWidth': '180px', 'maxWidth': '400px', 'width': '180px', 'whiteSpace': 'normal', 'height': '35px',},
                 filter_action="native",
                 page_action="native",
                 page_current= 0,
                 page_size= 20,
                 export_format='xlsx',
-                export_headers='display',),
+                export_headers='display',
+                css = [{
+                    "selector": ".Select-menu-outer",
+                    "rule": 'display : block !important'
+                }],
+                dropdown={
+                    'Overall': {
+                        'options': [
+                            {'label': i, 'value': i}
+                            for i in ['Excellent', 'Good', 'Okay', 'Bad', 'Broken']
+                        ]
+                    },
+                    'BR_Status': {
+                        'options': [
+                            {'label': i, 'value': i}
+                            for i in ['Excellent', 'Good', 'Okay', 'Bad', 'Broken']
+                        ]
+                    },
+                    'SR_Status': {
+                        'options': [
+                            {'label': i, 'value': i}
+                            for i in ['Excellent', 'Good', 'Okay', 'Bad', 'Broken']
+                        ]
+                    },
+                }
+                ),
         ]),
     ]),
 ])]
 
 
-reformer_maintenance_layout = [dbc.Row(
+reformer_maintenance_layout = [html.Div([
+    dbc.Row(
+        [   
+        dbc.Col(html.Div(), width='auto'),
+        dbc.Col(
+            dbc.Card([
+                #dbc.CardHeader("Index"),
+                dbc.CardBody([
+                    dcc.Link('Go to Data Analysis', id='link_data_analysis', href='/Dash/'),
+                ])
+                ]), 
+                width=11),
+        dbc.Col(html.Div(), width='auto'),
+    ],
+    justify="center"
+    ),
+    dbc.Row(
         [
             dbc.Col(html.Div(), width='auto'),
-            dbc.Col(
+            dbc.Col(html.Div([
                 dbc.Card([
                     dbc.CardHeader("reformer_maintenance_table"),
                     dbc.CardBody(reformer_maintenance_card),
                     ]), 
-                    width=11),
+                archive_card,
+                ]),
+                width=11),
             dbc.Col(html.Div(), width='auto'),
         ],
         justify="center"
-    )]
+    )
+])]
 
 
-data_analysis_layout = [html.Div([
+data_analysis_card = [html.Div([
     html.H1(children='Hi Platformer', 
             style={
                 'textAlign': 'center',
                 'color': colors['text'],
             }),
-
-    dbc.Card([
-        html.Div([
-            html.H3(children='Archive', 
-                    style={'color': colors['text'],}
-                    ),
-            html.I(children='Archive From Database:',
-                    style={
-                        'textAlign': 'left',
-                        'color': colors['text'],
-                    }),
-            dcc.Dropdown(
-                    ['reformer', 'Reformer_BW', 'Reformer_BW_Alert', 'Reformer_SE', 'Reformer_SE_Alert', 'Prototype_15kW', 'Prototype_15kW_Alert'],
-                    'reformer',
-                    placeholder='Select A Database...',
-                    id='source_db',
-                    style={"width": "50%"},
-                    persistence=True,
-                ),
-            dcc.Dropdown(
-                options=[],
-                placeholder='Select A Source Table...',
-                id='db_table_dropdown',
-                style={"width": "50%"},
-            ),
-            html.H6(id='db_table_preview_title'),
-            html.Div(id='db_table_preview_container'),
-            html.A(
-                'Download Data',
-                id='download_link',
-                target="_blank"
-            ),
-            html.Br(),
-            html.Br(),
-            html.I(children='To Destination Database:', 
-                    style={
-                        'textAlign': 'left',
-                        'color': colors['text'],
-                    }),
-            dcc.Dropdown(
-                ['Reformer_BW', 'Reformer_BW_Alert', 'Reformer_SE', 'Reformer_SE_Alert', 'Prototype_15kW', 'Prototype_15kW_Alert'],
-                placeholder='Select A Destination Database...',
-                id='destination_db',
-                style={"width": "50%"},
-            ),
-            html.Br(),
-            html.Div([
-                dbc.Input(placeholder="A New Table Name Goes Here...", type="text", size="md", 
-                        id='new_table_name_input', debounce=True, style={"width": "30%"},
-                        ),
-                dbc.FormText("Please Assign A New Table Name"),
-                ]),
-            html.Br(),
-            html.Div([
-                dbc.Input(placeholder="S/N Number Goes Here...", type="text", size="md", 
-                        id='new_table_sn_input', debounce=True, style={"width": "30%"},
-                        ),
-                dbc.FormText("Please Fill in A Serial Number If Any"),
-                ]),
-            html.Br(),
-            html.Div([
-                dbc.Input(placeholder="Purpose Goes Here...", type="text", size="md", 
-                        id='new_table_purpose_input', debounce=True, style={"width": "30%"},
-                        ),
-                dbc.FormText("Please Fill in A Purpose Of The Data If Any"),
-                ]),
-            html.Hr(),
-            dbc.Button('Archive', id='archive_button', n_clicks=0),
-            html.Span(id="archive_output", style={"margin-left":'10px', "verticalAlign": "middle"}),
-        ],),
-    ],
-    body=True,
-    ),
+    archive_card,
     html.Br(),
-
     dbc.Card([
         html.Div([
             html.H3(children='Data Analysis', 
@@ -333,22 +402,67 @@ data_analysis_layout = [html.Div([
     ),
 ])]
 
-
+data_analysis_layout = [html.Div([
+    dbc.Row(
+        [   
+        dbc.Col(html.Div(), width='auto'),
+        dbc.Col(
+            dbc.Card([
+                #dbc.CardHeader("Index"),
+                dbc.CardBody([
+                    dcc.Link('Go to Reformer Maintenance', id='link_reformer_maintenance', href='/Dash/Reformer/'),
+                ])
+                ]), 
+                width=11),
+        dbc.Col(html.Div(), width='auto'),
+    ],
+    justify="center"
+    ),
+    dbc.Row(
+        [
+            dbc.Col(html.Div(), width='auto'),
+            dbc.Col(
+                dbc.Card([
+                    dbc.CardHeader("data_analysis"),
+                    dbc.CardBody(data_analysis_card),
+                    ]), 
+                    width=11),
+            dbc.Col(html.Div(), width='auto'),
+        ],
+        justify="center"
+    )
+])]
 @app.callback(
-    Output('reformer_maintenance_table', 'data'),
-    Output('reformer_maintenance_table', 'columns'),
+    Output('reformer_sn_dropdown', 'options'),
+    Output('reformer_sn_dropdown', 'value'),
     Input('reformer_type_dropdown', 'value'),
 )
-def reformer_maintenance_datatable(reformer_type):
+def reformer_sn_dropdown_populate(reformer_type):
     try:
         conn, cur = db_conn(db_name='reformer_maintenance')
-        data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}'", conn)
-        print(data)
-        columns=[{"name": i, "id": i, "editable":False} if i in ['Table_Name', 'DB_Name'] else {"name": i, "id": i, "editable":True} for i in data.columns]
+        data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}'", conn).iloc[::-1]
+        options = data['SN'].unique()
     except mariadb.Error as e:
       print(f"Error retrieving entry from database: {e}")
     finally:
-        return data.to_dict('records'), columns
+        conn.close()
+        return options, options[0]
+
+@app.callback(
+    Output('reformer_maintenance_table', 'data'),
+    Input('reformer_sn_dropdown', 'value'),
+    State('reformer_type_dropdown', 'value'),
+)
+def reformer_maintenance_datatable(reformer_sn, reformer_type):
+    try:
+        conn, cur = db_conn(db_name='reformer_maintenance')
+        data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}' AND SN='{reformer_sn}'", conn).iloc[::-1]
+        print(data)        
+    except mariadb.Error as e:
+      print(f"Error retrieving entry from database: {e}")
+    finally:
+        conn.close()
+        return data.to_dict('records')
         
 @app.callback(
     Output('debug_output_1', 'children'),
