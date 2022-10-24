@@ -6,7 +6,7 @@ import random
 import pandas as pd
 import mariadb
 from flask import send_file, request
-from dash import Dash, dcc, html, Input, Output, State, dash_table
+from dash import Dash, dcc, html, Input, Output, State, dash_table, ctx
 import dash_bootstrap_components as dbc
 import plotly.express as px
 from plotly.subplots import make_subplots
@@ -127,7 +127,7 @@ reformer_maintenance_card = [html.Div([
         html.Div([
             html.H3(children='Maintenance Table', 
                 style={'color': colors['text'],}
-                ),
+            ),
             dcc.Dropdown(
                 ['Reformer_SE', 'Reformer_BW',],
                 'Reformer_SE',
@@ -135,13 +135,13 @@ reformer_maintenance_card = [html.Div([
                 id='reformer_type_dropdown',
                 style={"width": "50%"},
                 persistence=True,
-                ),
+            ),
             dcc.Dropdown(
                 placeholder='Select A SN...',
                 id='reformer_sn_dropdown',
                 style={"width": "50%"},
                 persistence=True,
-                ),
+            ),
             html.Br(),
             dash_table.DataTable(id='reformer_maintenance_table', data=None,
                 columns=[
@@ -190,7 +190,14 @@ reformer_maintenance_card = [html.Div([
                         ]
                     },
                 }
-                ),
+            ),
+            html.Br(),
+            dcc.ConfirmDialogProvider(
+                children=html.Button('Click to maintain', style={'height': '60px', 'font-size': "18px",}),
+                id='Maintain_button',
+                message='Ready to submit your changes. Pls double make sure it.'
+            ),
+            dcc.Store(id='reformer_maintenance_table_changes_store')
         ]),
     ]),
 ])]
@@ -432,6 +439,8 @@ data_analysis_layout = [html.Div([
         justify="center"
     )
 ])]
+
+
 @app.callback(
     Output('reformer_sn_dropdown', 'options'),
     Output('reformer_sn_dropdown', 'value'),
@@ -448,24 +457,106 @@ def reformer_sn_dropdown_populate(reformer_type):
         conn.close()
         return options, options[0]
 
+
+# update the check table         
 @app.callback(
-    Output('reformer_maintenance_table', 'data'),
-    Input('reformer_sn_dropdown', 'value'),
-    State('reformer_type_dropdown', 'value'),
+    [
+        Output('reformer_maintenance_table', 'data'),
+        Output('reformer_maintenance_table_changes_store', 'data'),
+        ],
+    [
+        Input('reformer_sn_dropdown', 'value'),
+        Input('Maintain_button', 'submit_n_clicks'),
+        Input('reformer_maintenance_table', 'data'),
+        ],
+    [   
+        State('reformer_type_dropdown', 'value'),
+        State('reformer_maintenance_table', 'data_previous'),
+        State('reformer_maintenance_table_changes_store', 'data'),
+        ],
 )
-def reformer_maintenance_datatable(reformer_sn, reformer_type):
-    try:
-        conn, cur = db_conn(db_name='reformer_maintenance')
-        if reformer_sn == 'All':
-            data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}'", conn).iloc[::-1]    
+def update_reformer_maintenance_table(reformer_sn, submit_n_clicks, data, reformer_type, data_previous, changes):
+    print(data)
+    print(data_previous)
+    if ctx.triggered_id == 'reformer_sn_dropdown':
+        try:
+            conn, cur = db_conn(db_name='reformer_maintenance')
+            if reformer_sn == 'All':
+                data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}'", conn).iloc[::-1]    
+            else:
+                data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}' AND SN='{reformer_sn}'", conn).iloc[::-1]
+            print(data)
+        except mariadb.Error as e:
+            print(f"Error retrieving entry from database: {e}")
+        finally:
+            conn.close()
+            return [data.to_dict('records'), None]
+
+    elif ctx.triggered_id == 'reformer_maintenance_table':
+        if data and data_previous:
+            for i in range(len(data)):
+                for col in ['Conversion', 'RunTime']:
+                    if data[i][col] is not None:
+                        if not isinstance(data[i][col], float):
+                            data[i][col] = None
+                for col in ['Link1', 'Link2']:
+                    if data[i][col] is not None:
+                        if isinstance(data[i][col], str): 
+                            if len(data[i][col]) > 500 or (not data[i][col].startswith('http')):
+                                data[i][col] = None
+                        else:
+                            data[i][col] = None
+            if not isinstance(changes, list):
+                changes = []
+            for i in range(len(data)):
+                if data[i] != data_previous[i]:
+                    changes.append(data[i])
+            print(changes)
+
+        return [data, changes]
+    
+    elif ctx.triggered_id == 'Maintain_button':
+        if not submit_n_clicks:
+            raise PreventUpdate
         else:
-            data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}' AND SN='{reformer_sn}'", conn).iloc[::-1]
-    except mariadb.Error as e:
-      print(f"Error retrieving entry from database: {e}")
-    finally:
-        conn.close()
-        return data.to_dict('records')
-        
+            if not changes:
+                change_string = f"Fail. Fill in a checkin/checkout cell for revision."
+            else:
+                for key, value in changes.items():
+                    #print(key, value)
+                    col = value['col']
+                    if 'checkin' in col:
+                        table = db.CheckIn
+                    elif 'checkout' in col:
+                        table = db.CheckOut
+                    pre = datetime.strptime(value['previous'], '%m/%d/%Y %H:%M') if value['previous'] else None
+                    cur = datetime.strptime(value['current'], '%m/%d/%Y %H:%M') if value['current'] else None
+
+                    _today_entry = []
+                    _entry_date = cur.date() if cur else pre.date()
+                    for entry in db.db_session.query(table).filter(table.staff_name == staff.staff_name).all():
+                        if entry.created_time.date() == _entry_date:
+                            _today_entry.append(entry)
+                    _last_entry = _today_entry[-1] if _today_entry else None
+
+                    for entry in _today_entry:
+                        if entry != _last_entry:
+                            db.db_session.delete(entry)
+
+                    #delete the last entry of the day
+                    pre_place = 'None'
+                    if _last_entry:
+                        pre_place = _last_entry.check_place
+                        db.db_session.delete(_last_entry)
+                    # insert a row
+                    if cur != None:
+                        db.db_session.add(table(staff_name=staff.staff_name, created_time=cur, revised=reason, check_place=f'{pre_place} prior' if 'prior' not in pre_place else f'{pre_place}'))
+                db.db_session.commit()
+                #check_table(pd.DataFrame.from_records(data))
+            changes = {}
+            return [check_df.to_dict('records'), changes]
+
+
 @app.callback(
     Output('debug_output_1', 'children'),
     Input('eda_display_mode', 'value'),
