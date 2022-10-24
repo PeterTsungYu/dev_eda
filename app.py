@@ -441,7 +441,7 @@ def reformer_sn_dropdown_populate(reformer_type):
     try:
         conn, cur = db_conn(db_name='reformer_maintenance')
         data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}'", conn).iloc[::-1]
-        options = data['SN'].unique()
+        options = ['All'] + list(data['SN'].unique())
     except mariadb.Error as e:
       print(f"Error retrieving entry from database: {e}")
     finally:
@@ -456,8 +456,10 @@ def reformer_sn_dropdown_populate(reformer_type):
 def reformer_maintenance_datatable(reformer_sn, reformer_type):
     try:
         conn, cur = db_conn(db_name='reformer_maintenance')
-        data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}' AND SN='{reformer_sn}'", conn).iloc[::-1]
-        print(data)        
+        if reformer_sn == 'All':
+            data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}'", conn).iloc[::-1]    
+        else:
+            data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}' AND SN='{reformer_sn}'", conn).iloc[::-1]
     except mariadb.Error as e:
       print(f"Error retrieving entry from database: {e}")
     finally:
