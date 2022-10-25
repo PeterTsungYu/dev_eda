@@ -192,6 +192,8 @@ reformer_maintenance_card = [html.Div([
                 }
             ),
             html.Br(),
+            html.H6(id='reformer_maintenance_table_change_string'),
+            html.Br(),
             dcc.ConfirmDialogProvider(
                 children=html.Button('Click to maintain', style={'height': '60px', 'font-size': "18px",}),
                 id='Maintain_button',
@@ -463,6 +465,7 @@ def reformer_sn_dropdown_populate(reformer_type):
     [
         Output('reformer_maintenance_table', 'data'),
         Output('reformer_maintenance_table_changes_store', 'data'),
+        Output('reformer_maintenance_table_change_string', 'children')
         ],
     [
         Input('reformer_sn_dropdown', 'value'),
@@ -476,8 +479,7 @@ def reformer_sn_dropdown_populate(reformer_type):
         ],
 )
 def update_reformer_maintenance_table(reformer_sn, submit_n_clicks, data, reformer_type, data_previous, changes):
-    print(data)
-    print(data_previous)
+    change_string = None
     if ctx.triggered_id == 'reformer_sn_dropdown':
         try:
             conn, cur = db_conn(db_name='reformer_maintenance')
@@ -485,20 +487,22 @@ def update_reformer_maintenance_table(reformer_sn, submit_n_clicks, data, reform
                 data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}'", conn).iloc[::-1]    
             else:
                 data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}' AND SN='{reformer_sn}'", conn).iloc[::-1]
-            print(data)
         except mariadb.Error as e:
-            print(f"Error retrieving entry from database: {e}")
+            change_string = f"Error retrieving entry from database: {e}"
         finally:
             conn.close()
-            return [data.to_dict('records'), None]
+            return [data.to_dict('records'), None, change_string]
 
     elif ctx.triggered_id == 'reformer_maintenance_table':
         if data and data_previous:
             for i in range(len(data)):
                 for col in ['Conversion', 'RunTime']:
                     if data[i][col] is not None:
-                        if not isinstance(data[i][col], float):
+                        try:
+                            data[i][col] = float(data[i][col])
+                        except Exception as e:
                             data[i][col] = None
+                            change_string = f"Error cast from string to float: {e}"
                 for col in ['Link1', 'Link2']:
                     if data[i][col] is not None:
                         if isinstance(data[i][col], str): 
@@ -506,55 +510,45 @@ def update_reformer_maintenance_table(reformer_sn, submit_n_clicks, data, reform
                                 data[i][col] = None
                         else:
                             data[i][col] = None
-            if not isinstance(changes, list):
-                changes = []
+            if not isinstance(changes, dict):
+                changes = {}
             for i in range(len(data)):
                 if data[i] != data_previous[i]:
-                    changes.append(data[i])
-            print(changes)
+                    for k, v in data[i].items():
+                        if v != data_previous[i][k]:
+                            if changes.get(data[i]['Table_Name']):
+                                changes[data[i]['Table_Name']][k] = v
+                            else:
+                                changes[data[i]['Table_Name']] = {}
+                                changes[data[i]['Table_Name']][k] = v
 
-        return [data, changes]
+            change_string = f'You made some changes: {changes}'
+
+        return [data, changes, change_string]
     
     elif ctx.triggered_id == 'Maintain_button':
         if not submit_n_clicks:
             raise PreventUpdate
         else:
             if not changes:
-                change_string = f"Fail. Fill in a checkin/checkout cell for revision."
+                change_string = f"Fill/Edit in a cell for revision."
             else:
                 for key, value in changes.items():
-                    #print(key, value)
-                    col = value['col']
-                    if 'checkin' in col:
-                        table = db.CheckIn
-                    elif 'checkout' in col:
-                        table = db.CheckOut
-                    pre = datetime.strptime(value['previous'], '%m/%d/%Y %H:%M') if value['previous'] else None
-                    cur = datetime.strptime(value['current'], '%m/%d/%Y %H:%M') if value['current'] else None
-
-                    _today_entry = []
-                    _entry_date = cur.date() if cur else pre.date()
-                    for entry in db.db_session.query(table).filter(table.staff_name == staff.staff_name).all():
-                        if entry.created_time.date() == _entry_date:
-                            _today_entry.append(entry)
-                    _last_entry = _today_entry[-1] if _today_entry else None
-
-                    for entry in _today_entry:
-                        if entry != _last_entry:
-                            db.db_session.delete(entry)
-
-                    #delete the last entry of the day
-                    pre_place = 'None'
-                    if _last_entry:
-                        pre_place = _last_entry.check_place
-                        db.db_session.delete(_last_entry)
-                    # insert a row
-                    if cur != None:
-                        db.db_session.add(table(staff_name=staff.staff_name, created_time=cur, revised=reason, check_place=f'{pre_place} prior' if 'prior' not in pre_place else f'{pre_place}'))
-                db.db_session.commit()
-                #check_table(pd.DataFrame.from_records(data))
+                    for k,v in value.items():
+                        if v == None:
+                            v = 'NULL'
+                        try:
+                            conn, cur = db_conn(db_name='reformer_maintenance')
+                            #print(f"UPDATE maintenance_table SET {k}='{v}' WHERE Table_Name='{key}'")
+                            cur.execute(f"UPDATE maintenance_table SET {k}='{v}' WHERE Table_Name='{key}'")
+                            # cur.execute(f"UPDATE maintenance_table SET {k}=? WHERE Table_Name=?;", (v, key))
+                        except mariadb.Error as e:
+                            change_string = f"Error connecting to MariaDB Platform: {e}"
+                conn.commit()
+                conn.close()
+                change_string = 'Successfully maintained!'
             changes = {}
-            return [check_df.to_dict('records'), changes]
+            return [data, changes, change_string]
 
 
 @app.callback(
