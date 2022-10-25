@@ -155,8 +155,8 @@ reformer_maintenance_card = [html.Div([
                     {"name": 'Site', "id": 'Site', "editable":True,},
                     {"name": 'RunTime', "id": 'RunTime', "editable":True,},
                     {"name": 'Purpose', "id": 'Purpose', "editable":True,},
-                    {"name": 'Link1', "id": 'Link1', "editable":True,},
-                    {"name": 'Link2', "id": 'Link2', "editable":True,},
+                    {"name": 'Link1', "id": 'Link1', "editable":True, "presentation": "markdown"},
+                    {"name": 'Link2', "id": 'Link2', "editable":True, "presentation": "markdown"},
                 ], 
                 style_table={'overflowX': 'auto','minWidth': '100%',}, style_header={'backgroundColor': '#0074D9', 'color': 'white'},
                 style_cell={'textAlign': 'center', 'minWidth': '180px', 'maxWidth': '400px', 'width': '180px', 'whiteSpace': 'normal', 'height': '35px',},
@@ -166,6 +166,8 @@ reformer_maintenance_card = [html.Div([
                 page_size= 20,
                 export_format='xlsx',
                 export_headers='display',
+                editable=True,
+                markdown_options={"html": True, 'link_target':'_blank'},
                 css = [{
                     "selector": ".Select-menu-outer",
                     "rule": 'display : block !important'
@@ -487,29 +489,46 @@ def update_reformer_maintenance_table(reformer_sn, submit_n_clicks, data, reform
                 data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}'", conn).iloc[::-1]    
             else:
                 data = pd.read_sql(f"SELECT * FROM maintenance_table WHERE DB_Name='{reformer_type}' AND SN='{reformer_sn}'", conn).iloc[::-1]
+            data = data.to_dict('records')
         except mariadb.Error as e:
             change_string = f"Error retrieving entry from database: {e}"
         finally:
             conn.close()
-            return [data.to_dict('records'), None, change_string]
+            if data:
+                for i in range(len(data)):
+                    for col in ['Link1', 'Link2']:
+                        if isinstance(data[i][col], str):
+                            if 'http' not in data[i][col]:
+                                data[i][col] = f'<p></p>'
+                        else:
+                            data[i][col] = f'<p></p>'
+            return [data, None, change_string]
 
     elif ctx.triggered_id == 'reformer_maintenance_table':
         if data and data_previous:
             for i in range(len(data)):
                 for col in ['Conversion', 'RunTime']:
-                    if data[i][col] is not None:
+                    if data[i][col] != None:
                         try:
                             data[i][col] = float(data[i][col])
                         except Exception as e:
                             data[i][col] = None
                             change_string = f"Error cast from string to float: {e}"
                 for col in ['Link1', 'Link2']:
-                    if data[i][col] is not None:
+                    print(type(data[i][col]), data[i][col])
+                    if data[i][col] != None:
                         if isinstance(data[i][col], str): 
-                            if len(data[i][col]) > 500 or (not data[i][col].startswith('http')):
+                            if data[i][col].startswith('http'):
+                                data[i][col] = f'<a href="{data[i][col]}">Wrike Link</a>' if col == 'Link1' else f'<a href="{data[i][col]}">Cloud Link</a>'
+                            if (len(data[i][col]) > 500): 
                                 data[i][col] = None
+                            if (not data[i][col].startswith('<a')):
+                                if (not data[i][col].startswith('<p')):
+                                    data[i][col] = None
                         else:
                             data[i][col] = None
+                    else:
+                        data[i][col] = f'<p></p>'
             if not isinstance(changes, dict):
                 changes = {}
             for i in range(len(data)):
