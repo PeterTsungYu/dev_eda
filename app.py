@@ -31,12 +31,6 @@ colors = {
     'text': '#7FDBFF'
     }
 
-status_dict = OrderedDict([
-    ('Overall', ['Excellent', 'Good', 'Okay', 'Bad', 'Broken']),
-    ('BR_Status', ['Stable', 'Unstable', 'Disabled']),
-    ('SR_Status', ['Stable', 'Unstable', 'Disabled', 'Renewed']),
-])
-
 url = dcc.Location(id='url', refresh=True)
 app.layout = html.Div(children=[
     # represents the browser address bar and doesn't render anything
@@ -92,7 +86,7 @@ archive_card = dbc.Card([
         html.Br(),
         html.Div([
             dbc.Input(placeholder="A New Table Name Goes Here...", type="text", size="md", 
-                    id='new_table_name_input', debounce=True, style={"width": "30%"},
+                    id='new_table_name_input', debounce=True, style={"width": "30%"}, required=True,
                     ),
             dbc.FormText("Please Assign A New Table Name"),
             ]),
@@ -176,19 +170,19 @@ reformer_maintenance_card = [html.Div([
                     'Overall': {
                         'options': [
                             {'label': i, 'value': i}
-                            for i in ['Excellent', 'Good', 'Okay', 'Bad', 'Broken']
+                            for i in ['New Arrival', 'Good', 'To be maintained']
                         ]
                     },
                     'BR_Status': {
                         'options': [
                             {'label': i, 'value': i}
-                            for i in ['Excellent', 'Good', 'Okay', 'Bad', 'Broken']
+                            for i in ['New Arrival', 'Good', 'To be maintained']
                         ]
                     },
                     'SR_Status': {
                         'options': [
                             {'label': i, 'value': i}
-                            for i in ['Excellent', 'Good', 'Okay', 'Bad', 'Broken']
+                            for i in ['New Arrival', 'Good', 'To be maintained']
                         ]
                     },
                 }
