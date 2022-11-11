@@ -45,7 +45,7 @@ reformer_heat = {
     'reactants flow': 19.87, # MeOH/H2O flow rate (g/min)
     'products flow': 32.8, # total products flow rate (LPM)
     'gas composition': GA,
-    'convertion': 96.32, # ideal convertion (%)
+    'conversion': 96.32, # ideal conversion (%)
     'pressure': 0.03, # pressure of products (bar)
     'RAD T': 32.11, # tempertrue of products after cooling down (oC)
 }
@@ -173,7 +173,7 @@ This class is for the calculation of reaction prosses. To use this, you need som
    - 'products flow': float, [LPM]
    - 'burner out T': float, [°C]
    - 'gas composition': a dict, composition of AOG the unit of values use [%]
-   - 'convertion': float, [%]
+   - 'conversion': float, [%]
    - 'pressure': float, [bar]
    - 'RAD T': float, [°C]
 2. Idealgasconstant: a dict, including:
@@ -181,26 +181,108 @@ This class is for the calculation of reaction prosses. To use this, you need som
    - 'T': float, [K]
    - 'P': float, [atm]
 
-#### `conver(self)`
-Adjust the convertion, if over 100 % let it no more than one hundred, if no convertion given assume 100 %, if convertion below 0 raise error.
+#### `ReformerReactionCalc.conver()`
+Adjust the conversion, if over 100 % let it no more than one hundred, if no conversion given assume 100 %, if conversion below 0 raise error.
 
-#### `reactantsunit(self)`
-According to the convertion, turn the unit of reactants into [mole/min].
+**Return**
+  - *conver*: tuple
+  - Input conversion.
 
-#### `productsunit(self)`
-According to the convertion, turn the unit of products into [mole/min].
+**Example**
+```shell
+RF = ReformerReactionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+RF.conver()
+# return
+(1,)
+```
+#### `ReformerReactionCalc.reactantsunit()`  
+According to the conversion, turn the unit of reactants into [mole/min].
 
-#### `heatcalculate(self)`
+**Return**
+  - *(MeOH_react, H2O_react, MeOH_before, H2O_before)*: tuple
+  - Reactants flow rate, [mole/min].
+
+**Example**
+```shell
+RF = ReformerReactionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+RF.reactantsunit()
+# return
+(1.308953974582, 1.308953974582, 1.308953974582, 1.9593744865469753)
+```
+
+#### `ReformerReactionCalc.productsunit()`
+According to the conversion, turn the unit of products into [mole/min].
+
+**Return**
+  - *(MeOH_after, H2O_after, H2_after, CO2_after, CO_after)*: tuple
+  - Products flow rate, [mole/min].
+
+**Example**
+```shell
+RF = ReformerReactionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+RF.productsunit()
+# return
+(0.0, 0.6504205119649753, 1.33695043902439, 0.4774558829268293, 0.009245853658536585)
+```
+#### `ReformerReactionCalc.heatcalculate()`
 To calculate the energy of all species, the unit of each is [kJ/min].
 
-#### `need(self)`
+**Return**
+  - *(kJ_b_MeOH, kJ_a_MeOH, kJ_b_H2O, kJ_a_H2O, kJ_H2, kJ_CO2, kJ_CO)*: tuple
+  - The energy of reactancts and products , [kJ/min].
+
+**Example**
+```shell
+RF = ReformerReactionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+RF.heatcalculate()
+# return
+(0.27208653346614053, 0.0, 29.000339425637602, 0.0, 8.848885994891035, 8.848885994891035, 0.02982309933657279)
+```
+
+#### `ReformerReactionCalc.need()`
 To calculate the energy that reaction need, [kJ/min].
 
-#### `percentage(self)`
+**Return**
+  - *(kJ_before, kJ_after, need_heat)*: tuple
+  - The enthalpy of formation of reactancts and products, and reaction enthalpy, [kJ/min].
+
+**Example**
+```shell
+RF = ReformerReactionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+RF.need()
+# return
+(29.272425959103742, 17.72759508911864, 52.8557046794493)
+```
+
+#### `ReformerReactionCalc.percentage()`
 To calculate the percentage of products.
+
+**Return**
+  - *(VolumeP, VolumeP_list)*: tuple
+  - Products percentage package in dict [%] and mole per minute of products in list, [mole/min].
+
+**Example**
+```shell
+RF = ReformerReactionCalc(burner, Idealgasconstant) # The argument please refer to the example in Quick Start
+RF.need()
+# return
+({'MeOH%': 0.0, 'H2O%': 11.45, 'H2%': 65.19, 'CO2%': 22.65, 'CO%': 0.7}, [0.0, 11.454702995542206, 65.19380822025148, 22.649188369643714, 0.7023004145625957])
+```
 
 ### `ThermodynamicsCalculation(burner, reaction, Idealgasconstant)`
 This class is inherit `CombustionCalc` and `ReformerReactionCalc`, and has function to give quick results.
 
-#### `heff(self)`
+#### `ThermodynamicsCalculation.heff()`
 To show the heat efficeny results according to the parameters given.
+
+**Return**
+  - *(ideal_reformer_get, combustion_give, conbustion_wasted, reaction_need, heat_efficiency)*: tuple
+  - Heat of reformer get by burner [kW], heat giving by burner [kW], wasted heat [kW], reaction consumed heat [kW], and heat efficiency [%].
+
+**Example**
+```shell
+Ther = ThermodynamicsCalculation(combustion_heat, reformer_heat, Ideal_gas_constant) # The argument please refer to the example in Quick Start
+Ther.heff()
+# return
+(1.72, 2.43, 0.71, 0.32, 13.38)
+```
